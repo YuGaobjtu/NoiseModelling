@@ -42,6 +42,11 @@ class TestMatsim extends JdbcTestCase {
                 "pathFile"      : TestMatsim.getResource("MatsimTutorial/nantes_ile.osm.pbf").getPath(),
                 "targetSRID"    : 2154
         ]);
+
+
+
+
+
         String res = new Display_Database().exec(connection, [])
 
         assertEquals("BUILDINGS</br></br>GROUND</br></br>ROADS</br></br>", res)
