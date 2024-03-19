@@ -355,6 +355,7 @@ public class RoadCnossos {
         lvRoadLvl = lvRoadLvl + getCr("1", Junc_type, coeffVer) * coefficientJunctionDistance;
         medRoadLvl = medRoadLvl + getCr("2", Junc_type, coeffVer) * coefficientJunctionDistance;
         hgvRoadLvl = hgvRoadLvl + getCr("3", Junc_type, coeffVer) * coefficientJunctionDistance;
+
         // Effect of the acceleration and deceleration of vehicles - Propulsion Noise Eq 2.2.18
         lvMotorLvl = lvMotorLvl + getCp("1", Junc_type, coeffVer) * coefficientJunctionDistance;
         medMotorLvl = medMotorLvl + getCp("2", Junc_type, coeffVer) * coefficientJunctionDistance;
