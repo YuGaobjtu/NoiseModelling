@@ -5,7 +5,7 @@
 
 <img src="https://noisemodelling.readthedocs.io/en/latest/_images/NoiseModelling_banner.png" width="70%">
 
-NoiseModelling
+NoiseModelling  Gao
 ======
 
 NoiseModelling is a library capable of producing noise maps. 
