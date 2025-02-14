@@ -4,6 +4,8 @@ import groovy.sql.Sql
 import org.apache.commons.cli.*
 import org.h2.Driver
 import org.h2gis.functions.factory.H2GISFunctions
+import org.noise_planet.noisemodelling.wps.Geometric_Tools.Change_SRID
+import org.noise_planet.noisemodelling.wps.NoiseModelling.Noise_level_from_traffic
 import org.noise_planet.noisemodelling.wps.Receivers.Building_Grid
 import org.noise_planet.noisemodelling.wps.Receivers.Delaunay_Grid
 import org.noise_planet.noisemodelling.wps.Acoustic_Tools.DynamicIndicators
@@ -29,7 +31,7 @@ class Run {
 
     public static void main(String[] args) {
         //RunSUMO("fcd_output_32633",20)
-        RunFlow("roads_merged_traffic_0","Speed")
+        RunFlow("SPACE_MEAN")
         //export_table("Remove", 5800, 5900)
     }
 
@@ -50,7 +52,7 @@ class Run {
 
         // Import the receivers (or generate your set of receivers using Regular_Grid script for example)
         new Import_File().exec(connection,
-                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_python_method1_5m.shp",
+                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_selected.shp",
                  "inputSRID": "32633",
                  "tableName": "receivers"])
 
@@ -128,7 +130,7 @@ class Run {
         connection.close();
     }
 
-    static void RunFlow(String File_name, String Speed){
+    static void RunFlow(String File_name){
         String dbName = "file:///home/gao/noise_modeling_database"
         Connection connection;
         File dbFile = new File(URI.create(dbName));
@@ -145,9 +147,9 @@ class Run {
 
         // Import the receivers (or generate your set of receivers using Regular_Grid script for example)
         new Import_File().exec(connection,
-                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_python_method1_5m.shp",
+                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_selected.shp",
                  "inputSRID": "32633",
-                 "tableName": "receivers"])
+                 "tableName": "RECEIVERS"])
 
         // Set the height of the receivers
         new Set_Height().exec(connection,
@@ -156,9 +158,31 @@ class Run {
                 ])
 
         new Import_File().exec(connection,
-                ["pathFile" : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/%s.shp',File_name),
+                ["pathFile" : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/%s.shp',File_name),
                  "inputSRID": "32633",
                  "tableName" : "traffic_flow"])
+
+        // Set the height of the receivers
+        new Set_Height().exec(connection,
+                [ "tableName":"traffic_flow",
+                  "height": 0.05
+                ])
+
+        new Noise_level_from_traffic().exec(connection,
+                ["tableBuilding" : "buildings",
+                 "tableRoads" : "traffic_flow",
+                 "tableReceivers" : "RECEIVERS",
+                 "confMaxSrcDist" : 150,
+                 "confDiffHorizontal" : false,
+                 "confSkipLevening":true,
+                 "confSkipLnight":true,
+                 "confSkipLden":true
+                ])
+
+        new Export_Table().exec(connection, [
+                "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_LDAY_GEOM.csv',File_name),
+                "tableToExport" : "LDAY_GEOM"
+        ])
 
         connection.close();
     }

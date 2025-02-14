@@ -93,7 +93,7 @@ public class RoadVehicleCnossosvar {
         // Calculate the emission powers of motors lights vehicles and heavies goods vehicles.
         double MotorLvl;
 
-        //speed = (speed <= 20) ? 20 : speed; // Because when vehicles are stopped they still emit motor sounds.
+        speed = (speed <= 20) ? 20 : speed; // Because when vehicles are stopped they still emit motor sounds.
         // default or steady speed.
         MotorLvl = getCoeff("ap", freqParam, veh_type, coeffVer) + getCoeff("bp", freqParam, veh_type, coeffVer) * (speed - 70) / 70;
 
