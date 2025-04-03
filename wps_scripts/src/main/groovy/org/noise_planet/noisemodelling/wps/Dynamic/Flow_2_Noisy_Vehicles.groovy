@@ -191,7 +191,7 @@ def exec(Connection connection, input) {
         System.println("Create the random road traffic table over the number of iterations... ")
 
         sql.execute("drop table VEHICLES_PROBA IF EXISTS;" +
-                "create table VEHICLES_PROBA AS SELECT *,case when LV_SPD  < 20 then 0.001*LV/20 else 0.001*LV/LV_SPD end  LV_DENS_D, case when HV_SPD  < 20 then 0.001*HV/20 else 0.001*HV/HV_SPD end HGV_DENS_D  FROM VEHICLES ;" +
+                "create table VEHICLES_PROBA AS SELECT *,case when LV_SPD  < 20 then 0.02*LV/20 else 0.02*LV/LV_SPD end  LV_DENS_D, case when HV_SPD  < 20 then 0.02*HV/20 else 0.02*HV/HV_SPD end HGV_DENS_D  FROM VEHICLES ;" +
                 "alter table VEHICLES_PROBA add LENGTH double as select ST_LENGTH(the_geom) ;" +
                 "ALTER TABLE VEHICLES_PROBA ALTER COLUMN LV_DENS_D double;" +
                 "ALTER TABLE VEHICLES_PROBA ALTER COLUMN HGV_DENS_D double;" )
@@ -237,7 +237,8 @@ def exec(Connection connection, input) {
         sql.execute("CREATE INDEX ON VEHICLES(PK);")
         sql.execute("create table LW_DYNAMIC_GEOM  as select a.IT T,a.PK, b.THE_GEOM, a.Hz63, a.Hz125, a.Hz250, a.Hz500, a.Hz1000, a.Hz2000, a.Hz4000, a.Hz8000  FROM LW_DYNAMIC a LEFT JOIN  VEHICLES b  ON a.PK = b.PK;")
 
-    } else {
+    }
+    else {
 
         sql.execute("DROP TABLE IF EXISTS LW_DYNAMIC_GEOM")
         sql.execute("CREATE TABLE LW_DYNAMIC_GEOM(PK long, T real, ROAD_ID long, THE_GEOM geometry, HZ63 real, HZ125 real, HZ250 real, HZ500 real, HZ1000 real, HZ2000 real, HZ4000 real, HZ8000 real)")
@@ -553,9 +554,10 @@ class Vehicle {
         backward = is_back
         id = getNextId()
 
-        if (road_type == 0 ) {
+        this.speed = speed
+        /*if (road_type == 0 ) {
             this.speed = (3 * speed / 4) + (rand.nextGaussian() + 1) * (speed / 4)
-        }
+        }*/
         if (this.vehicle_type == HEAVY_VEHICLE_TYPE || this.vehicle_type == MEDIUM_VEHICLE_TYPE) {
             this.speed = Math.min(this.speed, 90 / 3.6) // max 90km/h for heavy vehicles
         }
@@ -605,10 +607,13 @@ class Vehicle {
         for (int i = 0; i < freqs.length; i++) {
 
             RoadVehicleCnossosvarParameters rsParametersDynamic = new RoadVehicleCnossosvarParameters(
-                    speed * 3.6, 0, vehicle_type, 0,  true, 1, id      )
+                    speed * 3.6, 0, vehicle_type, 1,  false, 1, id      )
             rsParametersDynamic.setRoadSurface("DEF")
+            rsParametersDynamic.setTemperature(20)
+            rsParametersDynamic.setSlopePercentage(0)
+            rsParametersDynamic.setFrequency(freqs[i])
             // remove lw_correction
-            result[i] = RoadVehicleCnossosvar.evaluate(rsParametersDynamic) + lw_correction;
+            result[i] = RoadVehicleCnossosvar.evaluate(rsParametersDynamic);
         }
         return result;
     }
@@ -785,7 +790,7 @@ class IndividualVehicleEmissionProcessData {
         double[] res_LV = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         double[] res_HV = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         def list = [63, 125, 250, 500, 1000, 2000, 4000, 8000]
-
+        Random rand = new Random(681254665)
 
         def random = Math.random()
         if (random < LV.get(idSource)) {
@@ -793,6 +798,7 @@ class IndividualVehicleEmissionProcessData {
             for (f in list) {
 
                 double speed = SPEED_LV.get(idSource)
+                //speed = (3 * speed / 4) + (rand.nextGaussian() + 1) * (speed / 4)
                 int acc = 0
                 int FreqParam = f
                 double Temperature = 20
@@ -808,6 +814,8 @@ class IndividualVehicleEmissionProcessData {
                 RoadVehicleCnossosvarParameters rsParameters = new RoadVehicleCnossosvarParameters(speed, acc, veh_type, acc_type, Stud, LwStd, VehId)
                 rsParameters.setRoadSurface(RoadSurface)
                 rsParameters.setSlopePercentage(0)
+                rsParameters.setTemperature(Temperature)
+                rsParameters.setFrequency(f)
 
                 res_LV[kk] = RoadVehicleCnossosvar.evaluate(rsParameters)
                 kk++
@@ -834,6 +842,9 @@ class IndividualVehicleEmissionProcessData {
                 RoadVehicleCnossosvarParameters rsParameters = new RoadVehicleCnossosvarParameters(speed, acc, veh_type, acc_type, Stud, LwStd, VehId)
                 rsParameters.setSlopePercentage(0)
                 rsParameters.setRoadSurface(RoadSurface)
+                rsParameters.setTemperature(Temperature)
+                rsParameters.setFrequency(f)
+
                 res_HV[kk] = RoadVehicleCnossosvar.evaluate(rsParameters)
                 kk++
             }

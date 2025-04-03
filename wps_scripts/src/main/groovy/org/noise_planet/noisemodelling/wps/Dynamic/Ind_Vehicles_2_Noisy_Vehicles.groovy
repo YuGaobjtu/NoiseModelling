@@ -176,6 +176,7 @@ class VehicleEmissionProcessData {
         //////////////////////
 
         sql.execute("drop table if exists LW_DYNAMIC;")
+        sql.execute("drop table if exists LW_VEHICLE;")
         sql.execute("create table LW_VEHICLE(IT integer, THE_GEOM geometry, Hz63 double precision, Hz125 double precision, Hz250 double precision, Hz500 double precision, Hz1000 double precision, Hz2000 double precision, Hz4000 double precision, Hz8000 double precision);")
         def qry = 'INSERT INTO LW_VEHICLE(IT , THE_GEOM,Hz63, Hz125, Hz250, Hz500, Hz1000,Hz2000, Hz4000, Hz8000) VALUES (?,?,?,?,?,?,?,?,?,?);'
 
@@ -207,7 +208,38 @@ class VehicleEmissionProcessData {
                     }
 
                 }
-        } else if (tableFormat.equals("SYMUVIA")){
+        }
+        else if (tableFormat.equals("SUMO_acc")){
+            // Remplissage des variables avec le contenu du fichier SUMO
+            sql.eachRow('SELECT THE_GEOM, SPEED, ID, TIMESTEP, acceleration FROM ' + tablename + ';') { row ->
+
+                Geometry the_geom = (Geometry) row[0]
+                double speed = (double) row[1]
+                double acceleration = row[4]
+                def id_veh = row[2]
+
+                // Try to convert id_veh to an Integer if it's a String
+                if (id_veh instanceof String) {
+                    try {
+                        id_veh = Integer.parseInt(id_veh) // Convert to Integer
+                    } catch (NumberFormatException e) {
+                        // If conversion fails, id_veh remains unchanged (still a String)
+                    }
+                }
+
+                int timestep = (int) row[3]
+                // in SUMO, the speed is in m.s-1, we need to convert it in km.h-1
+                double[] carLevel = getCarsLevel_acc(speed*3.6, acceleration, id_veh)
+                sql.withBatch(100, qry) { ps ->
+                    ps.addBatch(timestep as Integer, the_geom as Geometry,
+                            carLevel[0] as Double, carLevel[1] as Double, carLevel[2] as Double,
+                            carLevel[3] as Double, carLevel[4] as Double, carLevel[5] as Double,
+                            carLevel[6] as Double, carLevel[7] as Double)
+                }
+
+            }
+        }
+        else if (tableFormat.equals("SYMUVIA")){
             // Remplissage des variables avec le contenu du fichier SUMO
             sql.eachRow('SELECT THE_GEOM, SPEED, ID, TIMESTEP FROM ' + tablename + ';') { row ->
 
@@ -269,7 +301,9 @@ class VehicleEmissionProcessData {
 
             RoadVehicleCnossosvarParameters rsParameters = new RoadVehicleCnossosvarParameters(speed, acc, veh_type, acc_type, Stud, LwStd, VehId)
             rsParameters.setRoadSurface(RoadSurface)
+            rsParameters.setTemperature(20)
             rsParameters.setSlopePercentage(0)
+            rsParameters.setFrequency(f)
             res_LV[kk] = RoadVehicleCnossosvar.evaluate(rsParameters)
             kk++
         }
@@ -277,6 +311,35 @@ class VehicleEmissionProcessData {
         return res_LV
     }
 
+    double[] getCarsLevel_acc(double speed, double acc, def id_veh) throws SQLException {
+        double[] res_LV = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        def list = [63, 125, 250, 500, 1000, 2000, 4000, 8000]
 
+        int kk = 0
+        for (f in list) {
+            String RoadSurface = "DEF"
+            boolean Stud = false
+            String veh_type = "1"
+            int acc_type = 2
+            double LwStd = 1
+
+            int VehId = 10
+
+            // Check if id_veh is an Integer
+            if (id_veh instanceof Integer) {
+                VehId = id_veh as Integer // Replace VehId with the value of id_veh
+            }
+
+            RoadVehicleCnossosvarParameters rsParameters = new RoadVehicleCnossosvarParameters(speed, acc, veh_type, acc_type, Stud, LwStd, VehId)
+            rsParameters.setRoadSurface(RoadSurface)
+            rsParameters.setTemperature(20)
+            rsParameters.setSlopePercentage(0)
+            rsParameters.setFrequency(f)
+            res_LV[kk] = RoadVehicleCnossosvar.evaluate(rsParameters)
+            kk++
+        }
+
+        return res_LV
+    }
 
 }

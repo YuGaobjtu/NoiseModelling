@@ -43,7 +43,7 @@ class TestPoisson extends JdbcTestCase {
      */
     void testDynamicFlowTutorial() {
 
-        // Import the road network (with predicted traffic flows) and buildings from an OSM file
+        /* Import the road network (with predicted traffic flows) and buildings from an OSM file
         new Import_OSM().exec(connection, [
                 "pathFile"      : TestImportExport.getResource("map.osm.gz").getPath(),
                 "targetSRID"    : 2154,
@@ -51,19 +51,35 @@ class TestPoisson extends JdbcTestCase {
                 "ignoreBuilding": false,
                 "ignoreRoads"   : false,
                 "removeTunnels" : true
-        ]);
+        ]);*/
 
-        // Create a receiver grid
-        new Regular_Grid().exec(connection,  ["buildingTableName": "BUILDINGS",
-                                              "sourcesTableName" : "ROADS",
-                                              "delta"            : 25])
+        // Import Buildings for your study area
+        new Import_File().exec(connection,
+                ["pathFile" :  "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/buildings_nm_ready.shp",
+                 "inputSRID": "32633",
+                 "tableName": "buildings"])
+
+        new Import_File().exec(connection,
+                ["pathFile" : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/TIME_MEAN_single_test.shp'),
+                 "inputSRID": "32633",
+                 "tableName" : "ROADS"])
+
+        // (optional) Add a primary key to the road network
+        new Add_Primary_Key().exec(connection,
+                ["pkName" :"PK",
+                 "tableName": "ROADS"])
+
+        // Import the receivers (or generate your set of receivers using Regular_Grid script for example)
+        new Import_File().exec(connection,
+                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_selected.shp",
+                 "inputSRID": "32633",
+                 "tableName": "receivers"])
 
         // Set a height to the receivers at 1.5 m
         new Set_Height().exec(connection,
                 [ "tableName":"RECEIVERS",
                   "height": 1.5
                 ])
-
 
         // From the network with traffic flow to individual trajectories with associated Lw using the Poisson method
         // This method place the vehicles on the network according to the traffic flow following a poisson law

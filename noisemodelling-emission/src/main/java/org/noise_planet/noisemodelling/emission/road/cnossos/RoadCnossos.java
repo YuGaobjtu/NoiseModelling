@@ -385,7 +385,7 @@ public class RoadCnossos {
         /**
          * Compute Noise Level from flow_rate and speed - Eq 2.2.1
          */
-        double lvLvl = Vperhour2NoiseLevel(lvCompound, roadCnossosParameters.getLvPerHour(), roadCnossosParameters.getSpeedLv());
+        double lvLvl = Vperhour2NoiseLevel(lvCompound, roadCnossosParameters.getLvPerHour(), roadCnossosParameters.get_pass_SpeedLv());
         double medLvl = Vperhour2NoiseLevel(medCompound, roadCnossosParameters.getMvPerHour(), roadCnossosParameters.getSpeedMv());
         double hgvLvl = Vperhour2NoiseLevel(hgvCompound, roadCnossosParameters.getHgvPerHour(), roadCnossosParameters.getSpeedHgv());
         double wheelaLvl = Vperhour2NoiseLevel(wheelaCompound, roadCnossosParameters.getWavPerHour(), roadCnossosParameters.getSpeedWav());
@@ -400,7 +400,7 @@ public class RoadCnossos {
             double medCompound_InverseSlope = sumDbValues(medRoadLvl, medMotorLvl);
             double hgvCompound_InverseSlope = sumDbValues(hgvRoadLvl, hgvMotorLvl);
 
-            lvLvl = sumDbValues(Vperhour2NoiseLevel(lvCompound, roadCnossosParameters.getLvPerHour() / 2, roadCnossosParameters.getSpeedLv()), Vperhour2NoiseLevel(lvCompound_InverseSlope, roadCnossosParameters.getLvPerHour() / 2, roadCnossosParameters.getSpeedLv()));
+            lvLvl = sumDbValues(Vperhour2NoiseLevel(lvCompound, roadCnossosParameters.getLvPerHour() / 2, roadCnossosParameters.get_pass_SpeedLv()), Vperhour2NoiseLevel(lvCompound_InverseSlope, roadCnossosParameters.getLvPerHour() / 2, roadCnossosParameters.get_pass_SpeedLv()));
             medLvl = sumDbValues(Vperhour2NoiseLevel(medCompound, roadCnossosParameters.getMvPerHour() / 2, roadCnossosParameters.getSpeedMv()), Vperhour2NoiseLevel(medCompound_InverseSlope, roadCnossosParameters.getMvPerHour() / 2, roadCnossosParameters.getSpeedMv()));
             hgvLvl = sumDbValues(Vperhour2NoiseLevel(hgvCompound, roadCnossosParameters.getHgvPerHour() / 2, roadCnossosParameters.getSpeedHgv()), Vperhour2NoiseLevel(hgvCompound_InverseSlope, roadCnossosParameters.getHgvPerHour() / 2, roadCnossosParameters.getSpeedHgv()));
         }

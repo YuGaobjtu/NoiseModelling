@@ -472,7 +472,8 @@ public class NoiseEmissionMaker extends Scene {
         } else if(noiseMapParameters.input_mode == NoiseMapParameters.INPUT_MODE.INPUT_MODE_TRAFFIC_FLOW) {
             // Extract road slope
             double slope = 0;
-            try {
+            // Ignore slope
+            /*try {
                 Geometry g = rs.getGeometry();
                 if(profileBuilder!=null && g != null && !g.isEmpty()) {
                     Coordinate[] c = g.getCoordinates();
@@ -486,7 +487,7 @@ public class NoiseEmissionMaker extends Scene {
                 }
             } catch (SQLException ex) {
                 // ignore
-            }
+            }*/
             // Day
             ld = dbaToW(getEmissionFromResultSet(rs, "_D", slope));
 

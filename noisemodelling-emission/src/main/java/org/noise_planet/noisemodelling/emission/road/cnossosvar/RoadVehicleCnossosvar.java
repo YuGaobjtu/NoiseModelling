@@ -51,6 +51,7 @@ public class RoadVehicleCnossosvar {
         // Noise road/tire CNOSSOS
         double RoadLvl; // Lw/m (1 veh/h)
 
+        speed = (speed <= 20) ? 20 : speed;
         // Noise level
         RoadLvl = getNoiseLvl(getCoeff("ar", freqParam, veh_type, coeffVer), getCoeff("br", freqParam, veh_type, coeffVer), speed, 70.);
 
@@ -85,7 +86,6 @@ public class RoadVehicleCnossosvar {
 
         //Road surface correction on rolling noise
         RoadLvl = RoadLvl + getNoiseLvl(getA_RoadSurfaceCoeff(freqParam, veh_type, roadSurface, coeffVer), getB_RoadSurfaceCoeff(veh_type, roadSurface, coeffVer), speed, 70.);
-        //RoadLvl = (speed <= 20) ? 0 : RoadLvl;
         RoadLvl = (speed <= 0) ? -99 : RoadLvl;
 
         // ///////////////////////

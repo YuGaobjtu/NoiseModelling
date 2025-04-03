@@ -4,6 +4,7 @@ import groovy.sql.Sql
 import org.apache.commons.cli.*
 import org.h2.Driver
 import org.h2gis.functions.factory.H2GISFunctions
+import org.noise_planet.noisemodelling.wps.Dynamic.Flow_2_Noisy_Vehicles
 import org.noise_planet.noisemodelling.wps.Geometric_Tools.Change_SRID
 import org.noise_planet.noisemodelling.wps.NoiseModelling.Noise_level_from_traffic
 import org.noise_planet.noisemodelling.wps.Receivers.Building_Grid
@@ -30,8 +31,9 @@ import java.sql.ResultSet
 class Run {
 
     public static void main(String[] args) {
-        //RunSUMO("fcd_output_32633",20)
-        RunFlow("SPACE_MEAN")
+        //RunSUMO("fcd_filtered_output_32633",20)
+        RunFlow("SPACE_MEAN_filtered")
+        //RunDynamicFlow("TIME_MEAN_filtered", "POISSON")
         //export_table("Remove", 5800, 5900)
     }
 
@@ -52,7 +54,7 @@ class Run {
 
         // Import the receivers (or generate your set of receivers using Regular_Grid script for example)
         new Import_File().exec(connection,
-                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_selected.shp",
+                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_random.shp",
                  "inputSRID": "32633",
                  "tableName": "receivers"])
 
@@ -64,7 +66,7 @@ class Run {
 
         // Import the road network
         new Import_File().exec(connection,
-                ["pathFile" :"/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/roads_merged.shp",
+                ["pathFile" :"//home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/TIME_MEAN_filtered.shp",
                  "inputSRID": "32633",
                  "tableName": "network_stockholm"])
 
@@ -92,9 +94,9 @@ class Run {
                 ["tableBuilding"   : "BUILDINGS",
                  "tableSources"   : "SOURCES_0DB",
                  "tableReceivers": "RECEIVERS",
-                 "maxError" : 0.0,
-                 "confMaxSrcDist" : 150,
-                 "confDiffHorizontal" : false,
+                 "confMaxSrcDist" : 250,
+                 "confDiffHorizontal" : true,
+                 "confDiffVertical" : true,
                  "confExportSourceId": true,
                  "confSkipLday":true,
                  "confSkipLevening":true,
@@ -106,7 +108,7 @@ class Run {
         new Ind_Vehicles_2_Noisy_Vehicles().exec(connection,
                 ["tableVehicles": "vehicle",
                  "distance2snap" : 30,
-                 "tableFormat" : "SUMO"])
+                 "tableFormat" : "SUMO_acc"])
 
         // Compute the noise level from the moving vehicles to the receivers
         // the output table is called here LT_GEOM and contains the time series of the noise level at each receiver
@@ -126,6 +128,12 @@ class Run {
                 "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%d.csv',File_name, gridStep),
                 "tableToExport" : "LT_GEOM"
         ])
+
+        // This step is optional, it compute the LEQA, LEQ, L10, L50 and L90 at each receiver from the table LT_GEOM
+        new DynamicIndicators().exec(connection,
+                ["tableName"   : "LT_GEOM",
+                 "columnName"   : "LEQA"
+                ])
 
         connection.close();
     }
@@ -147,7 +155,7 @@ class Run {
 
         // Import the receivers (or generate your set of receivers using Regular_Grid script for example)
         new Import_File().exec(connection,
-                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_selected.shp",
+                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_random.shp",
                  "inputSRID": "32633",
                  "tableName": "RECEIVERS"])
 
@@ -172,8 +180,9 @@ class Run {
                 ["tableBuilding" : "buildings",
                  "tableRoads" : "traffic_flow",
                  "tableReceivers" : "RECEIVERS",
-                 "confMaxSrcDist" : 150,
-                 "confDiffHorizontal" : false,
+                 "confMaxSrcDist" : 250,
+                 "confDiffHorizontal" : true,
+                 "confDiffVertical" : true,
                  "confSkipLevening":true,
                  "confSkipLnight":true,
                  "confSkipLden":true
@@ -183,6 +192,90 @@ class Run {
                 "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_LDAY_GEOM.csv',File_name),
                 "tableToExport" : "LDAY_GEOM"
         ])
+
+        connection.close();
+    }
+
+    static void RunDynamicFlow(String File_name,String method){
+        String dbName = "file:///home/gao/noise_modeling_database"
+        Connection connection;
+        File dbFile = new File(URI.create(dbName));
+        String databasePath = "jdbc:h2:" + dbFile.getAbsolutePath() + ";AUTO_SERVER=TRUE";
+        Driver.load();
+        connection = DriverManager.getConnection(databasePath, "", "");
+        H2GISFunctions.load(connection);
+
+        new Import_File().exec(connection,
+                ["pathFile" :  "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/buildings_nm_ready.shp",
+                 "inputSRID": "32633",
+                 "tableName": "buildings"])
+
+        new Import_File().exec(connection,
+                ["pathFile" : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/%s.shp',File_name),
+                 "inputSRID": "32633",
+                 "tableName" : "ROADS"])
+
+        // (optional) Add a primary key to the road network
+        new Add_Primary_Key().exec(connection,
+                ["pkName" :"PK",
+                 "tableName": "ROADS"])
+
+        // Import the receivers (or generate your set of receivers using Regular_Grid script for example)
+        new Import_File().exec(connection,
+                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_random.shp",
+                 "inputSRID": "32633",
+                 "tableName": "receivers"])
+
+        // Set a height to the receivers at 1.5 m
+        new Set_Height().exec(connection,
+                [ "tableName":"RECEIVERS",
+                  "height": 1.5
+                ])
+
+        // From the network with traffic flow to individual trajectories with associated Lw using the Poisson method
+        // This method place the vehicles on the network according to the traffic flow following a poisson law
+        // It keeps a coherence in the time series of the noise level
+        new Flow_2_Noisy_Vehicles().exec(connection,
+                ["tableRoads": "ROADS",
+                 "method": method,
+                 "timestep": 1,
+                 "gridStep" : 20,
+                 //duration plus 1 when PROBA
+                 "duration" : 3600])
+
+        // Compute the attenuation noise level from the network sources (SOURCES_0DB) to the receivers
+        new Noise_level_from_source().exec(connection,
+                ["tableBuilding"   : "BUILDINGS",
+                 "tableSources"   : "SOURCES_0DB",
+                 "tableReceivers": "RECEIVERS",
+                 "confMaxSrcDist" : 250,
+                 "confDiffHorizontal" : true,
+                 "confDiffVertical" : true,
+                 "confExportSourceId": true,
+                 "confSkipLday":true,
+                 "confSkipLevening":true,
+                 "confSkipLnight":true,
+                 "confSkipLden":true
+                ])
+
+        // Compute the noise level from the moving vehicles to the receivers
+        // the output table is called here LT_GEOM and contains the time series of the noise level at each receiver
+        new Noise_From_Attenuation_Matrix().exec(connection,
+                ["lwTable"   : "LW_DYNAMIC_GEOM",
+                 "attenuationTable"   : "LDAY_GEOM",
+                 "outputTable"   : "LT_GEOM"
+                ])
+
+        new Export_Table().exec(connection, [
+                "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%s_LDAY_GEOM.csv',File_name, method),
+                "tableToExport" : "LT_GEOM"
+        ])
+
+        // This step is optional, it compute the LEQA, LEQ, L10, L50 and L90 at each receiver from the table LT_GEOM
+        new DynamicIndicators().exec(connection,
+                ["tableName"   : "LT_GEOM",
+                 "columnName"   : "LEQA"
+                ])
 
         connection.close();
     }

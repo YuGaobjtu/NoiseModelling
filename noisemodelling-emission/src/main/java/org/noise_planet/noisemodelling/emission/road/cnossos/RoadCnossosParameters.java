@@ -41,6 +41,7 @@ public class RoadCnossosParameters {
     private int way = 1; // 1 = direct, 2 = inverse, 3 = double
 
     private double speedLv; // cat 1 vehicle speed vm (in km/h)
+    private double pass_speedLv; // cat 1 vehicle speed vm (in km/h)
     private double speedMv; // cat 2 vehicle speed  (in km/h)
     private double speedHgv; // cat 3 vehicle speed  (in km/h)
     private double speedWav; // cat 4a vehicle speed  (in km/h)
@@ -119,6 +120,7 @@ public class RoadCnossosParameters {
         this.Junc_dist = Math.max(0, Junc_dist);
         this.Junc_type = Math.max(0, Math.min(2, Junc_type));
         this.speedLv = lv_speed;
+        this.pass_speedLv = lv_speed;
         this.speedMv = mv_speed;
         this.speedHgv = hgv_speed;
         this.speedWav = wav_speed;
@@ -327,8 +329,17 @@ public class RoadCnossosParameters {
         if (speedLv < 20) {
             speedLv = 20;
         }
+
         return speedLv;
     }
+
+    public double get_pass_SpeedLv() throws IOException {
+        if (pass_speedLv == 0) {
+            pass_speedLv = 9999999;
+        }
+        return pass_speedLv;
+    }
+
 
     /**
      * Get the speed for medium vehicle
