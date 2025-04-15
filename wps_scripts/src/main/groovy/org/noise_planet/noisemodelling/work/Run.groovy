@@ -33,7 +33,7 @@ class Run {
     public static void main(String[] args) {
         //RunSUMO("fcd_filtered_output_32633",20)
         RunFlow("SPACE_MEAN_filtered")
-        //RunDynamicFlow("TIME_MEAN_filtered", "POISSON")
+        //RunDynamicFlow("TIME_MEAN_filtered", "PROBA")
         //export_table("Remove", 5800, 5900)
     }
 
@@ -235,6 +235,7 @@ class Run {
         // From the network with traffic flow to individual trajectories with associated Lw using the Poisson method
         // This method place the vehicles on the network according to the traffic flow following a poisson law
         // It keeps a coherence in the time series of the noise level
+        // save sstart time
         new Flow_2_Noisy_Vehicles().exec(connection,
                 ["tableRoads": "ROADS",
                  "method": method,
@@ -242,7 +243,7 @@ class Run {
                  "gridStep" : 20,
                  //duration plus 1 when PROBA
                  "duration" : 3600])
-
+// print time of exec Flow2noisy and wrtie it somewhere
         // Compute the attenuation noise level from the network sources (SOURCES_0DB) to the receivers
         new Noise_level_from_source().exec(connection,
                 ["tableBuilding"   : "BUILDINGS",

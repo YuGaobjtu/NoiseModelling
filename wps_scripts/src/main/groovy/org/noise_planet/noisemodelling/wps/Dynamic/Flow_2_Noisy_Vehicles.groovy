@@ -808,7 +808,7 @@ class IndividualVehicleEmissionProcessData {
                 int Junc_type = 1
                 String veh_type = "1"
                 int acc_type = 1
-                double LwStd = 1
+                double LwStd = 0
                 int VehId = 10
 
                 RoadVehicleCnossosvarParameters rsParameters = new RoadVehicleCnossosvarParameters(speed, acc, veh_type, acc_type, Stud, LwStd, VehId)
