@@ -243,7 +243,7 @@ class Run {
                  "gridStep" : 20,
                  //duration plus 1 when PROBA
                  "duration" : 3600])
-// print time of exec Flow2noisy and wrtie it somewhere
+        // print time of exec Flow2noisy and write it somewhere
         // Compute the attenuation noise level from the network sources (SOURCES_0DB) to the receivers
         new Noise_level_from_source().exec(connection,
                 ["tableBuilding"   : "BUILDINGS",

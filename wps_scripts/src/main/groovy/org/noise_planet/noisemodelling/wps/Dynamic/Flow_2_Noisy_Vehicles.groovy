@@ -607,7 +607,7 @@ class Vehicle {
         for (int i = 0; i < freqs.length; i++) {
 
             RoadVehicleCnossosvarParameters rsParametersDynamic = new RoadVehicleCnossosvarParameters(
-                    speed * 3.6, 0, vehicle_type, 1,  false, 1, id      )
+                    speed * 3.6, 0, vehicle_type, 1,  false, 0, id      )
             rsParametersDynamic.setRoadSurface("DEF")
             rsParametersDynamic.setTemperature(20)
             rsParametersDynamic.setSlopePercentage(0)
@@ -836,7 +836,7 @@ class IndividualVehicleEmissionProcessData {
                 int Junc_type = 1
                 String veh_type = "3"
                 int acc_type = 1
-                double LwStd = 1
+                double LwStd = 0
                 int VehId = 10
 
                 RoadVehicleCnossosvarParameters rsParameters = new RoadVehicleCnossosvarParameters(speed, acc, veh_type, acc_type, Stud, LwStd, VehId)
