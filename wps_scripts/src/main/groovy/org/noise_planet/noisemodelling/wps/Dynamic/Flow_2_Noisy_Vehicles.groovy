@@ -35,6 +35,8 @@ import java.sql.Connection
 import java.sql.ResultSet
 import java.sql.SQLException
 import java.util.stream.Collectors
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 title = 'From Road traffic flows to noisy individual vehicles'
 description = 'Calculating individual vehicle position and noise_level based on average traffic flows.' +
@@ -150,7 +152,7 @@ def exec(Connection connection, input) {
         timestep = Integer.valueOf(input['timestep'] as String)
     }
 
-    int gridStep = 10
+    int gridStep = 5
     if (input['gridStep']) {
         gridStep = Integer.valueOf(input['gridStep'] as String)
     }
@@ -191,7 +193,8 @@ def exec(Connection connection, input) {
         System.println("Create the random road traffic table over the number of iterations... ")
 
         sql.execute("drop table VEHICLES_PROBA IF EXISTS;" +
-                "create table VEHICLES_PROBA AS SELECT *,case when LV_SPD  < 20 then 0.02*LV/20 else 0.02*LV/LV_SPD end  LV_DENS_D, case when HV_SPD  < 20 then 0.02*HV/20 else 0.02*HV/HV_SPD end HGV_DENS_D  FROM VEHICLES ;" +
+                //"create table VEHICLES_PROBA AS SELECT *,case when LV_SPD  < 20 then 0.02*LV/20 else 0.02*LV/LV_SPD end  LV_DENS_D, case when HV_SPD  < 20 then 0.02*HV/20 else 0.02*HV/HV_SPD end HGV_DENS_D  FROM VEHICLES ;" +
+                "create table VEHICLES_PROBA AS SELECT *," + gridStep +"*LV/LV_SPD/1000 as LV_DENS_D, 0.02*HV/20 as HGV_DENS_D FROM VEHICLES ;" +
                 "alter table VEHICLES_PROBA add LENGTH double as select ST_LENGTH(the_geom) ;" +
                 "ALTER TABLE VEHICLES_PROBA ALTER COLUMN LV_DENS_D double;" +
                 "ALTER TABLE VEHICLES_PROBA ALTER COLUMN HGV_DENS_D double;" )
@@ -311,7 +314,8 @@ def exec(Connection connection, input) {
                 }
             }
         })
-        sql.execute("CREATE INDEX IF NOT EXISTS ST_TID ON LW_DYNAMIC_GEOM(T, PK)")
+        sql.execute("CREATE INDEX IF NOT EXISTS ST_TID ON LW_DYNAMIC_GEOM(T, PK);"+
+        "UPDATE LW_DYNAMIC_GEOM " +"SET THE_GEOM = ST_AddZ(ST_Force3D(THE_GEOM), 0.05);")
     }
     sql.execute("DROP TABLE IF EXISTS ROAD_POINTS")
     sql.execute("DROP TABLE IF EXISTS VEHICLES")
@@ -410,9 +414,9 @@ class Road {
             start += samples[i]
             vehicles.add(new Vehicle(hv_spd / 3.6, length, start, Vehicle.HEAVY_VEHICLE_TYPE, (i % 2 == 1), 0))
         }
-        for (Vehicle vehicle: vehicles) {
-            vehicle.lw_correction = 2 //lw_corr_generators.get(vehicle.vehicle_type).generate()
-        }
+        /*for (Vehicle vehicle: vehicles) {
+            vehicle.lw_correction = 0 //lw_corr_generators.get(vehicle.vehicle_type).generate()
+        }*/
     }
 
     void move(double time, double max_time) {
@@ -540,7 +544,7 @@ class Vehicle {
     boolean exists = false
     boolean backward = false
 
-    double lw_correction = 0.0
+    //double lw_correction = 0.0
 
     static int getNextId() {
         last_id++
@@ -764,13 +768,14 @@ class DisplacedNegativeExponentialDistribution extends HeadwayDistribution {
         super(seed);
         this.q = rate / 3600
         this.hmin = hmin
-        this.lambda = q / (1.0 - q * hmin)
+        //this.lambda = q / (1.0 - q * hmin)
+        this.lambda = q
     }
 
     @Override
     double inverseCumulativeProbability(double p) {
         // cumulative probability: p = 1 - exp[-lambda*(t-hmin)]
-        return hmin - Math.log(1.0 - p) / lambda
+        return  - Math.log(1.0 - p) / lambda
     }
 }
 
@@ -851,12 +856,15 @@ class IndividualVehicleEmissionProcessData {
         }
         int kk = 0
         for (f in list) {
-            res_d[kk] = 10 * Math.log10(
+            res_d[kk] = res_LV[kk] /*10 * Math.log10(
                     (1.0 / 2.0) *
                             (Math.pow(10, (10 * Math.log10(Math.pow(10, res_LV[kk] / 10))) / 10)
                                     + Math.pow(10, (10 * Math.log10(Math.pow(10, res_HV[kk] / 10))) / 10)
                             )
-            )
+            )*/
+            res_d[kk] = new BigDecimal(res_d[kk])
+                    .setScale(6, RoundingMode.HALF_UP)
+                    .doubleValue();
             kk++
         }
 

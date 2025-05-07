@@ -27,14 +27,18 @@ import java.sql.Connection
 import java.sql.DatabaseMetaData
 import java.sql.DriverManager
 import java.sql.ResultSet
+import java.time.LocalTime
 
 class Run {
 
     public static void main(String[] args) {
-        //RunSUMO("fcd_filtered_output_32633",20)
-        RunFlow("SPACE_MEAN_filtered")
-        //RunDynamicFlow("TIME_MEAN_filtered", "PROBA")
-        //export_table("Remove", 5800, 5900)
+        RunSUMO("fcd_filtered_output_32633_noacc",5)
+        //RunFlow("SPACE_MEAN_filtered")
+        //RunFlow("TIME_MEAN_filtered")
+        //RunFlow("Sensor_TIME_MEAN")
+        //RunDynamicFlow("TIME_MEAN_filtered", "PROBA", 5, 3601)
+        //RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5 , 3600)
+        //testproba("TIME_MEAN_single_test", "PROBA", 5, 3601)
     }
 
     static void RunSUMO(String File_name, int gridStep){
@@ -50,13 +54,13 @@ class Run {
         new Import_File().exec(connection,
                 ["pathFile" :  "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/buildings_nm_ready.shp",
                  "inputSRID": "32633",
-                 "tableName": "buildings"])
+                 "tableName": "BUILDINGS"])
 
         // Import the receivers (or generate your set of receivers using Regular_Grid script for example)
         new Import_File().exec(connection,
                 ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_random.shp",
                  "inputSRID": "32633",
-                 "tableName": "receivers"])
+                 "tableName": "RECEIVERS"])
 
         // Set the height of the receivers
         new Set_Height().exec(connection,
@@ -94,7 +98,9 @@ class Run {
                 ["tableBuilding"   : "BUILDINGS",
                  "tableSources"   : "SOURCES_0DB",
                  "tableReceivers": "RECEIVERS",
+                 "confReflOrder": 1,
                  "confMaxSrcDist" : 250,
+                 "confMaxReflDist": 250,
                  "confDiffHorizontal" : true,
                  "confDiffVertical" : true,
                  "confExportSourceId": true,
@@ -105,13 +111,25 @@ class Run {
                 ])
 
         // Create a table with the noise level from the vehicles and snap the vehicles to the discretized network
+        System.out.println("Start Ind_Vehicles_2_Noisy_Vehicles! Current time: " + LocalTime.now());
         new Ind_Vehicles_2_Noisy_Vehicles().exec(connection,
                 ["tableVehicles": "vehicle",
                  "distance2snap" : 30,
-                 "tableFormat" : "SUMO_acc"])
+                 "tableFormat" : "SUMO"])
+
+        new Export_Table().exec(connection, [
+                "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%d_LW_GEOM.csv',File_name, gridStep),
+                "tableToExport" : "LW_DYNAMIC_GEOM"
+        ])
+
+        new Export_Table().exec(connection, [
+                "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%d_LW_GEOM.shp',File_name, gridStep),
+                "tableToExport" : "LW_DYNAMIC_GEOM"
+        ])
 
         // Compute the noise level from the moving vehicles to the receivers
         // the output table is called here LT_GEOM and contains the time series of the noise level at each receiver
+        System.out.println("Start Noise_From_Attenuation_Matrix! Current time: " + LocalTime.now());
         new Noise_From_Attenuation_Matrix().exec(connection,
                 ["lwTable"   : "LW_DYNAMIC_GEOM",
                  "attenuationTable"   : "LDAY_GEOM",
@@ -119,6 +137,7 @@ class Run {
                 ])
 
         // This step is optional, it compute the LEQA, LEQ, L10, L50 and L90 at each receiver from the table LT_GEOM
+        System.out.println("End Noise_From_Attenuation_Matrix! Current time: " + LocalTime.now());
         String res = new DynamicIndicators().exec(connection,
                 ["tableName"   : "LT_GEOM",
                  "columnName"   : "LEQA"
@@ -151,7 +170,7 @@ class Run {
         new Import_File().exec(connection,
                 ["pathFile" :  "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/buildings_nm_ready.shp",
                  "inputSRID": "32633",
-                 "tableName": "buildings"])
+                 "tableName": "BUILDINGS"])
 
         // Import the receivers (or generate your set of receivers using Regular_Grid script for example)
         new Import_File().exec(connection,
@@ -177,10 +196,12 @@ class Run {
                 ])
 
         new Noise_level_from_traffic().exec(connection,
-                ["tableBuilding" : "buildings",
+                ["tableBuilding" : "BUILDINGS",
                  "tableRoads" : "traffic_flow",
                  "tableReceivers" : "RECEIVERS",
+                 "confReflOrder": 1,
                  "confMaxSrcDist" : 250,
+                 "confMaxReflDist": 250,
                  "confDiffHorizontal" : true,
                  "confDiffVertical" : true,
                  "confSkipLevening":true,
@@ -196,7 +217,7 @@ class Run {
         connection.close();
     }
 
-    static void RunDynamicFlow(String File_name,String method){
+    static void RunDynamicFlow(String File_name,String method, int grid, int duration){
         String dbName = "file:///home/gao/noise_modeling_database"
         Connection connection;
         File dbFile = new File(URI.create(dbName));
@@ -208,7 +229,7 @@ class Run {
         new Import_File().exec(connection,
                 ["pathFile" :  "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/buildings_nm_ready.shp",
                  "inputSRID": "32633",
-                 "tableName": "buildings"])
+                 "tableName": "BUILDINGS"])
 
         new Import_File().exec(connection,
                 ["pathFile" : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/%s.shp',File_name),
@@ -224,7 +245,7 @@ class Run {
         new Import_File().exec(connection,
                 ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_random.shp",
                  "inputSRID": "32633",
-                 "tableName": "receivers"])
+                 "tableName": "RECEIVERS"])
 
         // Set a height to the receivers at 1.5 m
         new Set_Height().exec(connection,
@@ -235,20 +256,26 @@ class Run {
         // From the network with traffic flow to individual trajectories with associated Lw using the Poisson method
         // This method place the vehicles on the network according to the traffic flow following a poisson law
         // It keeps a coherence in the time series of the noise level
-        // save sstart time
+        // save start time
+        System.out.println("Start Flow_2_Noisy_Vehicles! Current time: " + LocalTime.now());
         new Flow_2_Noisy_Vehicles().exec(connection,
                 ["tableRoads": "ROADS",
                  "method": method,
                  "timestep": 1,
-                 "gridStep" : 20,
+                 "gridStep" : grid,
                  //duration plus 1 when PROBA
-                 "duration" : 3600])
+                 "duration" : duration])
+
+
         // print time of exec Flow2noisy and write it somewhere
         // Compute the attenuation noise level from the network sources (SOURCES_0DB) to the receivers
+        System.out.println("Start Noise_level_from_source! Current time: " + LocalTime.now());
         new Noise_level_from_source().exec(connection,
                 ["tableBuilding"   : "BUILDINGS",
                  "tableSources"   : "SOURCES_0DB",
                  "tableReceivers": "RECEIVERS",
+                 "confReflOrder": 1,
+                 "confMaxReflDist": 250,
                  "confMaxSrcDist" : 250,
                  "confDiffHorizontal" : true,
                  "confDiffVertical" : true,
@@ -260,13 +287,23 @@ class Run {
                 ])
 
         // Compute the noise level from the moving vehicles to the receivers
+        new Export_Table().exec(connection, [
+                "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%s_LW_GEOM.csv',File_name, method),
+                "tableToExport" : "LW_DYNAMIC_GEOM"
+        ])
+        new Export_Table().exec(connection, [
+                "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%s_LW_GEOM.shp',File_name, method),
+                "tableToExport" : "LW_DYNAMIC_GEOM"
+        ])
         // the output table is called here LT_GEOM and contains the time series of the noise level at each receiver
+        System.out.println("Start Noise_From_Attenuation_Matrix! Current time: " + LocalTime.now());
         new Noise_From_Attenuation_Matrix().exec(connection,
                 ["lwTable"   : "LW_DYNAMIC_GEOM",
                  "attenuationTable"   : "LDAY_GEOM",
                  "outputTable"   : "LT_GEOM"
                 ])
 
+        System.out.println("End Noise_From_Attenuation_Matrix! Current time: " + LocalTime.now());
         new Export_Table().exec(connection, [
                 "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%s_LDAY_GEOM.csv',File_name, method),
                 "tableToExport" : "LT_GEOM"
@@ -281,9 +318,9 @@ class Run {
         connection.close();
     }
 
-    static void export_table(String File_name, int start_time, int end_time){
+    static void testproba(String File_name,String method, int grid, int duration){
 
-        String dbName = "file:///home/gao/Michele"
+        String dbName = "file:///home/gao/noise_modeling_database"
         Connection connection;
         File dbFile = new File(URI.create(dbName));
         String databasePath = "jdbc:h2:" + dbFile.getAbsolutePath() + ";AUTO_SERVER=TRUE";
@@ -291,9 +328,70 @@ class Run {
         connection = DriverManager.getConnection(databasePath, "", "");
         H2GISFunctions.load(connection);
 
+        new Import_File().exec(connection,
+                ["pathFile" :  "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/buildings_nm_ready.shp",
+                 "inputSRID": "32633",
+                 "tableName": "BUILDINGS"])
+
+        new Import_File().exec(connection,
+                ["pathFile" : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/%s.shp',File_name),
+                 "inputSRID": "32633",
+                 "tableName" : "ROADS"])
+
+        // (optional) Add a primary key to the road network
+        new Add_Primary_Key().exec(connection,
+                ["pkName" :"PK",
+                 "tableName": "ROADS"])
+
+        // Import the receivers (or generate your set of receivers using Regular_Grid script for example)
+        new Import_File().exec(connection,
+                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_random.shp",
+                 "inputSRID": "32633",
+                 "tableName": "RECEIVERS"])
+
+        // Set a height to the receivers at 1.5 m
+        new Set_Height().exec(connection,
+                [ "tableName":"RECEIVERS",
+                  "height": 1.5
+                ])
+
+        // From the network with traffic flow to individual trajectories with associated Lw using the Poisson method
+        // This method place the vehicles on the network according to the traffic flow following a poisson law
+        // It keeps a coherence in the time series of the noise level
+        // save start time
+        System.out.println("Start Flow_2_Noisy_Vehicles! Current time: " + LocalTime.now());
+        new Flow_2_Noisy_Vehicles().exec(connection,
+                ["tableRoads": "ROADS",
+                 "method": method,
+                 "timestep": 1,
+                 "gridStep" : grid,
+                 //duration plus 1 when PROBA
+                 "duration" : duration])
+
+
+        // print time of exec Flow2noisy and write it somewhere
+        // Compute the attenuation noise level from the network sources (SOURCES_0DB) to the receivers
+        System.out.println("Start Noise_level_from_source! Current time: " + LocalTime.now());
+        new Noise_level_from_source().exec(connection,
+                ["tableBuilding"   : "BUILDINGS",
+                 "tableSources"   : "SOURCES_0DB",
+                 "tableReceivers": "RECEIVERS",
+                 "confReflOrder": 1,
+                 "confMaxReflDist": 250,
+                 "confMaxSrcDist" : 250,
+                 "confDiffHorizontal" : true,
+                 "confDiffVertical" : true,
+                 "confExportSourceId": true,
+                 "confSkipLday":true,
+                 "confSkipLevening":true,
+                 "confSkipLnight":true,
+                 "confSkipLden":true
+                ])
+
+        // Compute the noise level from the moving vehicles to the receivers
         new Export_Table().exec(connection, [
-                "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%d_%d.csv',File_name, start_time, end_time),
-                "tableToExport" : "LT_GEOM_PROBA"
+                "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%s_LW_GEOM.csv',File_name, method),
+                "tableToExport" : "LW_DYNAMIC_GEOM"
         ])
     }
 
