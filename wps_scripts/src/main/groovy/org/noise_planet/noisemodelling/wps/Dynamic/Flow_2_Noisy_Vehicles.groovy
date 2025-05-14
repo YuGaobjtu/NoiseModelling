@@ -175,12 +175,12 @@ def exec(Connection connection, input) {
     System.out.println('Start  time : ' + TimeCategory.minus(new Date(), start))
 
     sql.execute("DROP TABLE IF EXISTS ROAD_POINTS" )
-    sql.execute("CREATE TABLE ROAD_POINTS(ROAD_ID serial, THE_GEOM geometry, LV int, LV_SPD real, HV int, HV_SPD real) AS SELECT r.PK, ST_Tomultipoint(ST_Densify(the_geom, "+gridStep+")), r.LV_D, r.LV_SPD_D, r.HGV_D, r.HGV_SPD_D FROM  "+sources_table_name+" r WHERE NOT ST_IsEmpty(r.THE_GEOM) ;")
+    sql.execute("CREATE TABLE ROAD_POINTS(ROAD_ID serial, THE_GEOM geometry, LV int, LV_SPD real, HV int, HV_SPD real, LENGTH real) AS SELECT r.PK, ST_Tomultipoint(ST_Densify(the_geom, "+gridStep+")), r.LV_D, r.LV_SPD_D, r.HGV_D, r.HGV_SPD_D, r.Length FROM  "+sources_table_name+" r WHERE NOT ST_IsEmpty(r.THE_GEOM) ;")
 
     sql.execute("drop table VEHICLES if exists;" +
             " create table VEHICLES as SELECT ST_AddZ(ST_FORCE3D(the_geom),0.05) geom_3D,* from ST_Explode('ROAD_POINTS');" +
             "ALTER TABLE VEHICLES DROP COLUMN the_geom;" +
-            " ALTER TABLE VEHICLES RENAME COLUMN geom_3D TO the_geom;" +
+            "ALTER TABLE VEHICLES RENAME COLUMN geom_3D TO the_geom;" +
             "alter table VEHICLES add PK INT AUTO_INCREMENT  PRIMARY KEY;" +
             "ALTER TABLE VEHICLES DROP COLUMN EXPLOD_ID;")
 
@@ -194,8 +194,9 @@ def exec(Connection connection, input) {
 
         sql.execute("drop table VEHICLES_PROBA IF EXISTS;" +
                 //"create table VEHICLES_PROBA AS SELECT *,case when LV_SPD  < 20 then 0.02*LV/20 else 0.02*LV/LV_SPD end  LV_DENS_D, case when HV_SPD  < 20 then 0.02*HV/20 else 0.02*HV/HV_SPD end HGV_DENS_D  FROM VEHICLES ;" +
-                "create table VEHICLES_PROBA AS SELECT *," + gridStep +"*LV/LV_SPD/1000 as LV_DENS_D, 0.02*HV/20 as HGV_DENS_D FROM VEHICLES ;" +
-                "alter table VEHICLES_PROBA add LENGTH double as select ST_LENGTH(the_geom) ;" +
+                "create table VEHICLES_PROBA AS SELECT *,LV/LV_SPD/1000*LENGTH/(FLOOR(LENGTH /" + gridStep +")+2) as LV_DENS_D, 0.02*HV/20 as HGV_DENS_D FROM VEHICLES ;" +
+                //"create table VEHICLES_PROBA AS SELECT *,LV/LV_SPD/1000*" + gridStep + "as LV_DENS_D, 0.02*HV/20 as HGV_DENS_D FROM VEHICLES ;" +
+                //"alter table VEHICLES_PROBA add LENGTH double as select ST_LENGTH(the_geom) ;" +
                 "ALTER TABLE VEHICLES_PROBA ALTER COLUMN LV_DENS_D double;" +
                 "ALTER TABLE VEHICLES_PROBA ALTER COLUMN HGV_DENS_D double;" )
 
@@ -264,7 +265,7 @@ def exec(Connection connection, input) {
             int k=1
 
             while (rs.next()) {
-                Road road = new Road()
+                Road road = new Road(duration)
                 System.out.println(k + "/" + coundRoad + "    % " + 100*k/coundRoad)
                 k++
 
@@ -353,6 +354,7 @@ class Road {
     int hv
     double hv_spd
     double length
+    double duration
 
     public List<SourcePoint> source_points = new ArrayList<SourcePoint>()
 
@@ -364,11 +366,12 @@ class Road {
 
     int seed = 2528432
 
-    Road(){
+    Road(double duration){
         line_segments.clear()
         vehicles.clear()
         lw_corr_generators.clear()
         source_points.clear()
+        this.duration = duration;
     }
 
     void setRoad(long id, String type, Geometry geom, int lv, double lv_spd, int hv, double hv_spd) {
@@ -402,14 +405,14 @@ class Road {
         double start
         DisplacedNegativeExponentialDistribution distribution = new DisplacedNegativeExponentialDistribution(lv, 1, seed)
         start = 0
-        def samples = distribution.getSamples(lv)
+        def samples = distribution.getSamples(lv, duration)
         for (int i = 0; i < lv; i++) {
             start += samples[i]
             vehicles.add(new Vehicle(lv_spd / 3.6, length, start, Vehicle.LIGHT_VEHICLE_TYPE, (i % 2 == 1), 0))
         }
         distribution = new DisplacedNegativeExponentialDistribution(hv, 1, seed)
         start = 0
-        samples = distribution.getSamples(hv)
+        samples = distribution.getSamples(hv, duration)
         for (int i = 0; i < hv; i++) {
             start += samples[i]
             vehicles.add(new Vehicle(hv_spd / 3.6, length, start, Vehicle.HEAVY_VEHICLE_TYPE, (i % 2 == 1), 0))
@@ -538,7 +541,7 @@ class Vehicle {
     double position = 0.0
     double max_position = 0.0
     double speed = 0.0 // m/s
-    double time_offset = 10.0 // shift everything by X seconds to ensure enough traffic exists
+    double time_offset = 20 // shift everything by X seconds to ensure enough traffic exists, default value was 10
     double time = 0.0
     double start_time = 0
     boolean exists = false
@@ -576,14 +579,22 @@ class Vehicle {
     }
 
     void move(double input_time, double max_time) {
-        time = (input_time + time_offset) % max_time
+        // Prevent skip moving early vehicle
+        if (input_time > time_offset){
+            time = (input_time + time_offset) % max_time
+        }
         double real_speed = (backward ? (-1 * speed) : speed)
         if (do_loop) {
             exists = true
             position = ((time + max_time + start_time) % max_time) * real_speed
         }
         else {
-            if (time >= start_time) {
+            // Insert the entry point
+            if (time >= start_time - 1 && time < start_time) {
+                exists = true
+                position = 0.01
+            }
+            else if (time >= start_time) {
                 exists = true
                 position = ((time - start_time) % max_time) * real_speed
             } else {
@@ -745,10 +756,18 @@ abstract class HeadwayDistribution {
         return inverseCumulativeProbability(random.nextDouble())
     }
 
-    double[] getSamples(int n) {
+    double[] getSamples(int n, double duration) {
+        if (n <= 0) {
+            return new double[0];
+        }
         double[] result = new double[n];
         for (i in 0..<n) {
             result[i] = getNext()
+        }
+        if (result[n - 1] > duration) {
+            for (i in 0..<n) {
+                result[i] = result[i] * (duration/result[n - 1]);
+            }
         }
         return result
     }

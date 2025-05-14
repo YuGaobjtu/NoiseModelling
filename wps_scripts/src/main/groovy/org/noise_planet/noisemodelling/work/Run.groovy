@@ -32,12 +32,12 @@ import java.time.LocalTime
 class Run {
 
     public static void main(String[] args) {
-        RunSUMO("fcd_filtered_output_32633_noacc",5)
+        //RunSUMO("fcd_filtered_output_32633_noacc",5)
         //RunFlow("SPACE_MEAN_filtered")
         //RunFlow("TIME_MEAN_filtered")
-        //RunFlow("Sensor_TIME_MEAN")
-        //RunDynamicFlow("TIME_MEAN_filtered", "PROBA", 5, 3601)
-        //RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5 , 3600)
+        //RunFlow("Sensor_MEAN_filtered")
+        RunDynamicFlow("TIME_MEAN_filtered", "PROBA", 5, 3601)
+        //RunDynamicFlow("Sensor_MEAN_filtered", "POISSON_nohmin", 5 , 3600)
         //testproba("TIME_MEAN_single_test", "PROBA", 5, 3601)
     }
 
@@ -117,7 +117,7 @@ class Run {
                  "distance2snap" : 30,
                  "tableFormat" : "SUMO"])
 
-        new Export_Table().exec(connection, [
+        /*new Export_Table().exec(connection, [
                 "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%d_LW_GEOM.csv',File_name, gridStep),
                 "tableToExport" : "LW_DYNAMIC_GEOM"
         ])
@@ -125,7 +125,7 @@ class Run {
         new Export_Table().exec(connection, [
                 "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%d_LW_GEOM.shp',File_name, gridStep),
                 "tableToExport" : "LW_DYNAMIC_GEOM"
-        ])
+        ])*/
 
         // Compute the noise level from the moving vehicles to the receivers
         // the output table is called here LT_GEOM and contains the time series of the noise level at each receiver
@@ -291,10 +291,10 @@ class Run {
                 "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%s_LW_GEOM.csv',File_name, method),
                 "tableToExport" : "LW_DYNAMIC_GEOM"
         ])
-        new Export_Table().exec(connection, [
+        /*new Export_Table().exec(connection, [
                 "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%s_LW_GEOM.shp',File_name, method),
                 "tableToExport" : "LW_DYNAMIC_GEOM"
-        ])
+        ])*/
         // the output table is called here LT_GEOM and contains the time series of the noise level at each receiver
         System.out.println("Start Noise_From_Attenuation_Matrix! Current time: " + LocalTime.now());
         new Noise_From_Attenuation_Matrix().exec(connection,
