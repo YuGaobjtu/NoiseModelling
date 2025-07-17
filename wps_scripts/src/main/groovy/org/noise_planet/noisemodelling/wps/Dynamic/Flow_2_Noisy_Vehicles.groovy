@@ -592,7 +592,7 @@ class Vehicle {
             // Insert the entry point
             if (time >= start_time - 1 && time < start_time) {
                 exists = true
-                position = 0.01
+                position = (backward ? -0.01 : 0.01)
             }
             else if (time >= start_time) {
                 exists = true

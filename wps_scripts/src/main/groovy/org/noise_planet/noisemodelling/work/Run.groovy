@@ -33,10 +33,13 @@ class Run {
 
     public static void main(String[] args) {
         //RunSUMO("fcd_filtered_output_32633_noacc",5)
+        RunSUMO("fcd_filtered_output_32633",5)
         //RunFlow("SPACE_MEAN_filtered")
         //RunFlow("TIME_MEAN_filtered")
         //RunFlow("Sensor_MEAN_filtered")
-        RunDynamicFlow("TIME_MEAN_filtered", "PROBA", 5, 3601)
+        //RunDynamicFlow("TIME_MEAN_filtered", "PROBA", 5, 3601)
+        //RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5 , 3600)
+        //RunDynamicFlow("Sensor_MEAN_filtered", "PROBA", 5 , 3601)
         //RunDynamicFlow("Sensor_MEAN_filtered", "POISSON_nohmin", 5 , 3600)
         //testproba("TIME_MEAN_single_test", "PROBA", 5, 3601)
     }
@@ -58,7 +61,7 @@ class Run {
 
         // Import the receivers (or generate your set of receivers using Regular_Grid script for example)
         new Import_File().exec(connection,
-                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_random.shp",
+                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_selected.shp",
                  "inputSRID": "32633",
                  "tableName": "RECEIVERS"])
 
@@ -99,8 +102,8 @@ class Run {
                  "tableSources"   : "SOURCES_0DB",
                  "tableReceivers": "RECEIVERS",
                  "confReflOrder": 1,
-                 "confMaxSrcDist" : 250,
-                 "confMaxReflDist": 250,
+                 "confMaxReflDist": 500,
+                 "confMaxSrcDist" : 500,
                  "confDiffHorizontal" : true,
                  "confDiffVertical" : true,
                  "confExportSourceId": true,
@@ -174,7 +177,7 @@ class Run {
 
         // Import the receivers (or generate your set of receivers using Regular_Grid script for example)
         new Import_File().exec(connection,
-                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_random.shp",
+                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_selected.shp",
                  "inputSRID": "32633",
                  "tableName": "RECEIVERS"])
 
@@ -200,8 +203,8 @@ class Run {
                  "tableRoads" : "traffic_flow",
                  "tableReceivers" : "RECEIVERS",
                  "confReflOrder": 1,
-                 "confMaxSrcDist" : 250,
-                 "confMaxReflDist": 250,
+                 "confMaxSrcDist" : 500,
+                 "confMaxReflDist": 500,
                  "confDiffHorizontal" : true,
                  "confDiffVertical" : true,
                  "confSkipLevening":true,
@@ -243,7 +246,7 @@ class Run {
 
         // Import the receivers (or generate your set of receivers using Regular_Grid script for example)
         new Import_File().exec(connection,
-                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_random.shp",
+                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_selected.shp",
                  "inputSRID": "32633",
                  "tableName": "RECEIVERS"])
 
@@ -275,8 +278,8 @@ class Run {
                  "tableSources"   : "SOURCES_0DB",
                  "tableReceivers": "RECEIVERS",
                  "confReflOrder": 1,
-                 "confMaxReflDist": 250,
-                 "confMaxSrcDist" : 250,
+                 "confMaxReflDist": 500,
+                 "confMaxSrcDist" : 500,
                  "confDiffHorizontal" : true,
                  "confDiffVertical" : true,
                  "confExportSourceId": true,
@@ -287,11 +290,11 @@ class Run {
                 ])
 
         // Compute the noise level from the moving vehicles to the receivers
-        new Export_Table().exec(connection, [
+        /*new Export_Table().exec(connection, [
                 "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%s_LW_GEOM.csv',File_name, method),
                 "tableToExport" : "LW_DYNAMIC_GEOM"
         ])
-        /*new Export_Table().exec(connection, [
+        new Export_Table().exec(connection, [
                 "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%s_LW_GEOM.shp',File_name, method),
                 "tableToExport" : "LW_DYNAMIC_GEOM"
         ])*/
