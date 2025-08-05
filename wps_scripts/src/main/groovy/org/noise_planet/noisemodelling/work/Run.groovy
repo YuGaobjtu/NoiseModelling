@@ -32,8 +32,8 @@ import java.time.LocalTime
 class Run {
 
     public static void main(String[] args) {
-        //RunSUMO("fcd_filtered_output_32633_noacc",5)
-        RunSUMO("fcd_filtered_output_32633",5)
+        RunSUMO("fcd_filtered_output_32633", "SUMO_acc",5)
+        //RunSUMO("fcd_filtered_output_32633_noacc", "SUMO",5)
         //RunFlow("SPACE_MEAN_filtered")
         //RunFlow("TIME_MEAN_filtered")
         //RunFlow("Sensor_MEAN_filtered")
@@ -44,7 +44,7 @@ class Run {
         //testproba("TIME_MEAN_single_test", "PROBA", 5, 3601)
     }
 
-    static void RunSUMO(String File_name, int gridStep){
+    static void RunSUMO(String File_name, String Format, int gridStep){
         String dbName = "file:///home/gao/noise_modeling_database"
         Connection connection;
         File dbFile = new File(URI.create(dbName));
@@ -118,7 +118,9 @@ class Run {
         new Ind_Vehicles_2_Noisy_Vehicles().exec(connection,
                 ["tableVehicles": "vehicle",
                  "distance2snap" : 30,
-                 "tableFormat" : "SUMO"])
+                 // Insert "SUMO_acc" if acceleration is considered, insert "SUMO" without acceleration
+                 "tableFormat" : Format
+                ])
 
         /*new Export_Table().exec(connection, [
                 "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%d_LW_GEOM.csv',File_name, gridStep),
