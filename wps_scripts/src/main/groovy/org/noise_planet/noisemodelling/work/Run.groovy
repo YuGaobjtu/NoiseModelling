@@ -32,13 +32,13 @@ import java.time.LocalTime
 class Run {
 
     public static void main(String[] args) {
-        RunSUMO("fcd_filtered_output_32633", "SUMO_acc",5)
+        //RunSUMO("fcd_filtered_output_32633", "SUMO_acc",5)
         //RunSUMO("fcd_filtered_output_32633_noacc", "SUMO",5)
         //RunFlow("SPACE_MEAN_filtered")
         //RunFlow("TIME_MEAN_filtered")
         //RunFlow("Sensor_MEAN_filtered")
-        //RunDynamicFlow("TIME_MEAN_filtered", "PROBA", 5, 3601)
-        //RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5 , 3600)
+        //RunDynamicFlow("TIME_MEAN_filtered", "PROBA", 5, 1801)
+        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5 , 1800)
         //RunDynamicFlow("Sensor_MEAN_filtered", "PROBA", 5 , 3601)
         //RunDynamicFlow("Sensor_MEAN_filtered", "POISSON_nohmin", 5 , 3600)
         //testproba("TIME_MEAN_single_test", "PROBA", 5, 3601)
@@ -310,7 +310,7 @@ class Run {
 
         System.out.println("End Noise_From_Attenuation_Matrix! Current time: " + LocalTime.now());
         new Export_Table().exec(connection, [
-                "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%s_LDAY_GEOM.csv',File_name, method),
+                "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%s_%s_LDAY_GEOM.csv',File_name, method, duration),
                 "tableToExport" : "LT_GEOM"
         ])
 
