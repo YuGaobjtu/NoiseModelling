@@ -32,13 +32,13 @@ import java.time.LocalTime
 class Run {
 
     public static void main(String[] args) {
-        //RunSUMO("fcd_filtered_output_32633", "SUMO_acc",5)
+        RunSUMO("fcd_filtered_output_32633", "SUMO_acc",5)
         //RunSUMO("fcd_filtered_output_32633_noacc", "SUMO",5)
         //RunFlow("SPACE_MEAN_filtered")
         //RunFlow("TIME_MEAN_filtered")
         //RunFlow("Sensor_MEAN_filtered")
         //RunDynamicFlow("TIME_MEAN_filtered", "PROBA", 5, 1801)
-        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5 , 1800)
+        //RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5 , 1800)
         //RunDynamicFlow("Sensor_MEAN_filtered", "PROBA", 5 , 3601)
         //RunDynamicFlow("Sensor_MEAN_filtered", "POISSON_nohmin", 5 , 3600)
         //testproba("TIME_MEAN_single_test", "PROBA", 5, 3601)
