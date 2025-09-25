@@ -47,8 +47,8 @@ class Run {
         RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 1800, "7")
         RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 1800, "8")
         RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 1800, "9")
-        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 1800, "10")
-        //RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5 , 1800)*/
+        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 1800, "10")*/
+        RunDynamicFlow("TIME_MEAN_filtered_single_LANES", "PROBA", 5 , 1200, "0")
         //RunDynamicFlow("Sensor_MEAN_filtered", "PROBA", 5 , 3600)
         //RunDynamicFlow("Sensor_MEAN_filtered", "POISSON_nohmin", 5 , 3600)
         /*testpoint(1)

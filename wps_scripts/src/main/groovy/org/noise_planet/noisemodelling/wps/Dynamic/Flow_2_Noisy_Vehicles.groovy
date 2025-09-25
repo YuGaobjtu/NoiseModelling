@@ -175,7 +175,7 @@ def exec(Connection connection, input) {
     System.out.println('Start  time : ' + TimeCategory.minus(new Date(), start))
 
     sql.execute("DROP TABLE IF EXISTS ROAD_POINTS" )
-    sql.execute("CREATE TABLE ROAD_POINTS(ROAD_ID serial, THE_GEOM geometry, LV int, LV_SPD real, HV int, HV_SPD real, LENGTH real) AS SELECT r.PK, ST_Tomultipoint(ST_Densify(the_geom, "+gridStep+")), r.LV_D, r.LV_SPD_D, r.HGV_D, r.HGV_SPD_D, r.Length FROM  "+sources_table_name+" r WHERE NOT ST_IsEmpty(r.THE_GEOM) ;")
+    sql.execute("CREATE TABLE ROAD_POINTS(ROAD_ID serial, THE_GEOM geometry, LV int, LV_SPD real, HV int, HV_SPD real, LENGTH real, LANES int) AS SELECT r.PK, ST_Tomultipoint(ST_Densify(the_geom, "+gridStep+")), r.LV_D, r.LV_SPD_D, r.HGV_D, r.HGV_SPD_D, r.Length, r.LANES FROM  "+sources_table_name+" r WHERE NOT ST_IsEmpty(r.THE_GEOM) ;")
 
     sql.execute("drop table VEHICLES if exists;" +
             " create table VEHICLES as SELECT ST_AddZ(ST_FORCE3D(the_geom),0.05) geom_3D,* from ST_Explode('ROAD_POINTS');" +
@@ -194,7 +194,7 @@ def exec(Connection connection, input) {
 
         sql.execute("drop table VEHICLES_PROBA IF EXISTS;" +
                 //"create table VEHICLES_PROBA AS SELECT *,case when LV_SPD  < 20 then 0.02*LV/20 else 0.02*LV/LV_SPD end  LV_DENS_D, case when HV_SPD  < 20 then 0.02*HV/20 else 0.02*HV/HV_SPD end HGV_DENS_D  FROM VEHICLES ;" +
-                "create table VEHICLES_PROBA AS SELECT *,LV/LV_SPD/1000*LENGTH/(FLOOR(LENGTH /" + gridStep +")+2) as LV_DENS_D, 0.02*HV/20 as HGV_DENS_D FROM VEHICLES ;" +
+                "create table VEHICLES_PROBA AS SELECT *,LV/LV_SPD/1000*LENGTH/(FLOOR(LENGTH /" + gridStep +")+2)/LANES as LV_DENS_D, 0.02*HV/20 as HGV_DENS_D FROM VEHICLES ;" +
                 //"create table VEHICLES_PROBA AS SELECT *,LV/LV_SPD/1000*" + gridStep + "as LV_DENS_D, 0.02*HV/20 as HGV_DENS_D FROM VEHICLES ;" +
                 //"alter table VEHICLES_PROBA add LENGTH double as select ST_LENGTH(the_geom) ;" +
                 "ALTER TABLE VEHICLES_PROBA ALTER COLUMN LV_DENS_D double;" +
@@ -808,6 +808,7 @@ class IndividualVehicleEmissionProcessData {
     Map<Integer, Double> SPEED_HV = new HashMap<>()
     Map<Integer, Double> LV = new HashMap<>()
     Map<Integer, Double> HV = new HashMap<>()
+    Map<Integer, Integer> LANES = new HashMap<>()
     int nCars = 0
 
     double[] getCarsLevel(int idSource) throws SQLException {
@@ -817,36 +818,38 @@ class IndividualVehicleEmissionProcessData {
         def list = [63, 125, 250, 500, 1000, 2000, 4000, 8000]
         Random rand = new Random(681254665)
 
-        def random = Math.random()
-        if (random < LV.get(idSource)) {
-            int kk = 0
-            for (f in list) {
+        for (int l = 1; l < LANES.get(idSource) + 1 ; l++) {
+            def random = Math.random()
+            if (random < LV.get(idSource)) {
+                int kk = 0
+                for (f in list) {
 
-                double speed = SPEED_LV.get(idSource)
-                //speed = (3 * speed / 4) + (rand.nextGaussian() + 1) * (speed / 4)
-                int acc = 0
-                int FreqParam = f
-                double Temperature = 20
-                String RoadSurface = "DEF"
-                boolean Stud = false
-                double Junc_dist = 200
-                int Junc_type = 1
-                String veh_type = "1"
-                int acc_type = 1
-                double LwStd = 0
-                int VehId = 10
+                    double speed = SPEED_LV.get(idSource)
+                    //speed = (3 * speed / 4) + (rand.nextGaussian() + 1) * (speed / 4)
+                    int acc = 0
+                    int FreqParam = f
+                    double Temperature = 20
+                    String RoadSurface = "DEF"
+                    boolean Stud = false
+                    double Junc_dist = 200
+                    int Junc_type = 1
+                    String veh_type = "1"
+                    int acc_type = 1
+                    double LwStd = 0
+                    int VehId = 10
 
-                RoadVehicleCnossosvarParameters rsParameters = new RoadVehicleCnossosvarParameters(speed, acc, veh_type, acc_type, Stud, LwStd, VehId)
-                rsParameters.setRoadSurface(RoadSurface)
-                rsParameters.setSlopePercentage(0)
-                rsParameters.setTemperature(Temperature)
-                rsParameters.setFrequency(f)
+                    RoadVehicleCnossosvarParameters rsParameters = new RoadVehicleCnossosvarParameters(speed, acc, veh_type, acc_type, Stud, LwStd, VehId)
+                    rsParameters.setRoadSurface(RoadSurface)
+                    rsParameters.setSlopePercentage(0)
+                    rsParameters.setTemperature(Temperature)
+                    rsParameters.setFrequency(f)
 
-                res_LV[kk] = RoadVehicleCnossosvar.evaluate(rsParameters)
-                kk++
+                    res_LV[kk] = 10 * Math.log10(
+                                    (Math.pow(10, res_LV[kk] / 10.0) + Math.pow(10, RoadVehicleCnossosvar.evaluate(rsParameters) / 10.0))
+                    )
+                    kk++
+                }
             }
-
-        }
         random = Math.random()
         if (random < HV.get(idSource)) {
             int kk = 0
@@ -873,6 +876,7 @@ class IndividualVehicleEmissionProcessData {
                 res_HV[kk] = RoadVehicleCnossosvar.evaluate(rsParameters)
                 kk++
             }
+        }
         }
         int kk = 0
         for (f in list) {
@@ -902,12 +906,13 @@ class IndividualVehicleEmissionProcessData {
         //////////////////////
 
         // Remplissage des variables avec le contenu du fichier plan d'exp
-        sql.eachRow('SELECT PK,  LV_SPD, LV_DENS_D,  HV_SPD, HGV_DENS_D FROM ' + tablename + ';') { row ->
+        sql.eachRow('SELECT PK,  LV_SPD, LV_DENS_D,  HV_SPD, HGV_DENS_D, LANES FROM ' + tablename + ';') { row ->
             int pk = (int) row[0]
             SPEED_LV.put(pk, (double) row[1])
             LV.put(pk, (double) row[2])
             SPEED_HV.put(pk, (double) row[3])
             HV.put(pk, (double) row[4])
+            LANES.put(pk, (double) row[5])
 
         }
 
