@@ -818,7 +818,7 @@ class IndividualVehicleEmissionProcessData {
         def list = [63, 125, 250, 500, 1000, 2000, 4000, 8000]
         Random rand = new Random(681254665)
 
-        for (int l = 1; l < LANES.get(idSource) + 1 ; l++) {
+        for (int l = 0; l < LANES.get(idSource); l++) {
             def random = Math.random()
             if (random < LV.get(idSource)) {
                 int kk = 0
