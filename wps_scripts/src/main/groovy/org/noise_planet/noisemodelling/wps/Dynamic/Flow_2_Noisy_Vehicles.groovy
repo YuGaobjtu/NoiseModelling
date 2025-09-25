@@ -212,7 +212,7 @@ def exec(Connection connection, input) {
 
         int nCarsPos = probabilisticProcessData.getCarsPositions()
         k = 0
-        for (int it = 1; it < nIterations; it++) {
+        for (int it = 1; it < nIterations + 1 ; it++) {
             Map<Integer, double[]> sourceLev = new HashMap<>()
             for (int iCar = 1; iCar < nCarsPos; iCar++) {
 
@@ -290,8 +290,8 @@ def exec(Connection connection, input) {
                 })
 
 
-                for (double time = 0; time < duration; time += timestep) {
-                    road.move(time, duration)
+                for (double time = 1; time < duration + 1; time += timestep) {
+                    road.move(time, duration + 1)
 
                     for (SourcePoint source in road.source_points) {
                         if (source.levels[0]> 0.0){
@@ -364,7 +364,8 @@ class Road {
 
     Map<String, LwCorrectionGenerator> lw_corr_generators = new LinkedHashMap<>()
 
-    int seed = 2528432
+    Random random = new Random();
+    int seed = random.nextInt();
 
     Road(double duration){
         line_segments.clear()
@@ -534,14 +535,14 @@ class Vehicle {
     static int last_id = 0
 
     static do_loop = false
-    static Random rand = new Random(681254665)
+    static Random rand = new Random()
 
     String vehicle_type = LIGHT_VEHICLE_TYPE
     int id = 0
     double position = 0.0
     double max_position = 0.0
     double speed = 0.0 // m/s
-    double time_offset = 20 // shift everything by X seconds to ensure enough traffic exists, default value was 10
+    double time_offset = 0 // shift everything by X seconds to ensure enough traffic exists, default value was 10
     double time = 0.0
     double start_time = 0
     boolean exists = false
@@ -637,7 +638,7 @@ class Vehicle {
 
 class LwCorrectionGenerator {
 
-    static Random rand = new Random(546656812)
+    static Random rand = new Random()
 
 
     final private static LinkedHashMap<String, List<Double> > distributions = [

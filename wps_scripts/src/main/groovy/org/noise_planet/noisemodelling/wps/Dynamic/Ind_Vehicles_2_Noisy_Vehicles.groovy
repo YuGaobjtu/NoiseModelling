@@ -142,6 +142,13 @@ def exec(Connection connection, input) {
     sql.execute("CREATE TABLE LW_DYNAMIC_GEOM AS SELECT a.*, b.THE_GEOM FROM LW_DYNAMIC_NEW a,SOURCES_0dB b WHERE a.PK = b.PK ;")
     sql.execute("DROP TABLE IF EXISTS LW_DYNAMIC_NEW;")
 
+
+    sql.execute("drop table if exists Vehicle_SNAP_NEW;")
+    sql.execute("create table Vehicle_SNAP_NEW as SELECT b.TIMESTEP as T ,b.SPEED, b.ACCELERATION, (SELECT a.PK FROM SOURCES_0dB a WHERE ST_EXPAND(b.the_geom,"+distance2snap+","+distance2snap+") && a.the_geom ORDER BY ST_Distance(a.the_geom, b.the_geom) ASC LIMIT 1) PK FROM VEHICLE b ;")
+    sql.execute("DROP TABLE IF EXISTS Vehicle_SNAP;")
+    sql.execute("CREATE TABLE Vehicle_SNAP AS SELECT a.*, b.THE_GEOM FROM Vehicle_SNAP_NEW a,SOURCES_0dB b WHERE a.PK = b.PK ;")
+    sql.execute("DROP TABLE IF EXISTS Vehicle_SNAP_NEW;")
+
     sql.execute("CREATE SPATIAL INDEX ON LW_DYNAMIC_GEOM(the_geom);")
 
    // sql.execute("DROP TABLE IF EXISTS ROAD_POINTS")

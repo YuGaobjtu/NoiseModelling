@@ -32,16 +32,27 @@ import java.time.LocalTime
 class Run {
 
     public static void main(String[] args) {
-        RunSUMO("fcd_filtered_output_32633", "SUMO_acc",5)
+        //RunSUMO("fcd_filtered_output_32633", "SUMO_acc",5)
         //RunSUMO("fcd_filtered_output_32633_noacc", "SUMO",5)
         //RunFlow("SPACE_MEAN_filtered")
         //RunFlow("TIME_MEAN_filtered")
         //RunFlow("Sensor_MEAN_filtered")
-        //RunDynamicFlow("TIME_MEAN_filtered", "PROBA", 5, 1801)
-        //RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5 , 1800)
-        //RunDynamicFlow("Sensor_MEAN_filtered", "PROBA", 5 , 3601)
+        //RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 90, "")
+        //RunDynamicFlow("Sensor_MEAN_filtered", "POISSON_nohmin", 5, 3600, "1")
+        /*RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 1800, "2")
+        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 1800, "3")
+        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 1800, "4")
+        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 1800, "5")
+        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 1800, "6")
+        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 1800, "7")
+        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 1800, "8")
+        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 1800, "9")
+        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 1800, "10")
+        //RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5 , 1800)*/
+        //RunDynamicFlow("Sensor_MEAN_filtered", "PROBA", 5 , 3600)
         //RunDynamicFlow("Sensor_MEAN_filtered", "POISSON_nohmin", 5 , 3600)
-        //testproba("TIME_MEAN_single_test", "PROBA", 5, 3601)
+        /*testpoint(1)
+        testpoint(2)*/
     }
 
     static void RunSUMO(String File_name, String Format, int gridStep){
@@ -153,12 +164,6 @@ class Run {
                 "tableToExport" : "LT_GEOM"
         ])
 
-        // This step is optional, it compute the LEQA, LEQ, L10, L50 and L90 at each receiver from the table LT_GEOM
-        new DynamicIndicators().exec(connection,
-                ["tableName"   : "LT_GEOM",
-                 "columnName"   : "LEQA"
-                ])
-
         connection.close();
     }
 
@@ -222,7 +227,7 @@ class Run {
         connection.close();
     }
 
-    static void RunDynamicFlow(String File_name,String method, int grid, int duration){
+    static void RunDynamicFlow(String File_name,String method, int grid, int duration, String name){
         String dbName = "file:///home/gao/noise_modeling_database"
         Connection connection;
         File dbFile = new File(URI.create(dbName));
@@ -310,7 +315,7 @@ class Run {
 
         System.out.println("End Noise_From_Attenuation_Matrix! Current time: " + LocalTime.now());
         new Export_Table().exec(connection, [
-                "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%s_%s_LDAY_GEOM.csv',File_name, method, duration),
+                "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%s_%s_LDAY_GEOM_%s.csv',File_name, method, duration, name),
                 "tableToExport" : "LT_GEOM"
         ])
 
@@ -323,7 +328,7 @@ class Run {
         connection.close();
     }
 
-    static void testproba(String File_name,String method, int grid, int duration){
+    static void testpoint(int num){
 
         String dbName = "file:///home/gao/noise_modeling_database"
         Connection connection;
@@ -333,46 +338,35 @@ class Run {
         connection = DriverManager.getConnection(databasePath, "", "");
         H2GISFunctions.load(connection);
 
+        // Import Buildings for your study area
         new Import_File().exec(connection,
                 ["pathFile" :  "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/buildings_nm_ready.shp",
                  "inputSRID": "32633",
                  "tableName": "BUILDINGS"])
 
-        new Import_File().exec(connection,
-                ["pathFile" : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/%s.shp',File_name),
-                 "inputSRID": "32633",
-                 "tableName" : "ROADS"])
-
-        // (optional) Add a primary key to the road network
-        new Add_Primary_Key().exec(connection,
-                ["pkName" :"PK",
-                 "tableName": "ROADS"])
-
         // Import the receivers (or generate your set of receivers using Regular_Grid script for example)
         new Import_File().exec(connection,
-                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_random.shp",
+                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_selected.shp",
                  "inputSRID": "32633",
                  "tableName": "RECEIVERS"])
 
-        // Set a height to the receivers at 1.5 m
+        // Set the height of the receivers
         new Set_Height().exec(connection,
                 [ "tableName":"RECEIVERS",
                   "height": 1.5
                 ])
 
-        // From the network with traffic flow to individual trajectories with associated Lw using the Poisson method
-        // This method place the vehicles on the network according to the traffic flow following a poisson law
-        // It keeps a coherence in the time series of the noise level
-        // save start time
-        System.out.println("Start Flow_2_Noisy_Vehicles! Current time: " + LocalTime.now());
-        new Flow_2_Noisy_Vehicles().exec(connection,
-                ["tableRoads": "ROADS",
-                 "method": method,
-                 "timestep": 1,
-                 "gridStep" : grid,
-                 //duration plus 1 when PROBA
-                 "duration" : duration])
+        // Import the Noise source points
+        new Import_File().exec(connection,
+                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Test_point/SOURCES_0DB.shp",
+                 "inputSRID": "32633",
+                 "tableName": "SOURCES_0DB"])
 
+        // Import the Noise source points
+        /*new Import_File().exec(connection,
+                ["pathFile" : String.format("/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Test_point/LW_DYNAMIC_GEOM_%s.shp", num),
+                 "inputSRID": "32633",
+                 "tableName": String.format("LW_DYNAMIC_GEOM_%s", num)])*/
 
         // print time of exec Flow2noisy and write it somewhere
         // Compute the attenuation noise level from the network sources (SOURCES_0DB) to the receivers
@@ -393,11 +387,12 @@ class Run {
                  "confSkipLden":true
                 ])
 
-        // Compute the noise level from the moving vehicles to the receivers
-        new Export_Table().exec(connection, [
-                "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%s_LW_GEOM.csv',File_name, method),
-                "tableToExport" : "LW_DYNAMIC_GEOM"
-        ])
+        new Noise_From_Attenuation_Matrix().exec(connection,
+                ["lwTable"   : String.format("LW_DYNAMIC_GEOM_%s", num),
+                 "attenuationTable"   : "LDAY_GEOM",
+                 "outputTable"   : String.format("LT_DYNAMIC_GEOM_%s", num)
+                ])
+
     }
 
 }
