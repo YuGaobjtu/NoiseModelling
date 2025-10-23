@@ -122,6 +122,7 @@ def run(input) {
 }
 
 
+
 // main function of the script
 def exec(Connection connection, input) {
 
@@ -158,6 +159,8 @@ def exec(Connection connection, input) {
     }
 
     int nIterations = (int) Math.round(duration/timestep);
+
+    int time_offset = 90 // shift everything by X seconds to ensure enough traffic exists, default value was 10
 
     String method = "PROBA"
     if (input['method']) {
@@ -265,7 +268,7 @@ def exec(Connection connection, input) {
             int k=1
 
             while (rs.next()) {
-                Road road = new Road(duration)
+                Road road = new Road(duration+time_offset)
                 System.out.println(k + "/" + coundRoad + "    % " + 100*k/coundRoad)
                 k++
 
@@ -273,9 +276,9 @@ def exec(Connection connection, input) {
                         rs.getLong('PK'),
                         "",
                         rs.getGeometry('THE_GEOM'),
-                        rs.getInt('LV_D'),
+                        (int) Math.round(rs.getInt("LV_D") * (duration+time_offset)/3600),
                         rs.getDouble('LV_SPD_D'),
-                        rs.getInt('HGV_D'),
+                        (int) Math.round(rs.getInt('HGV_D')*(duration+time_offset)/3600),
                         rs.getDouble('HGV_SPD_D')
                 )
 
@@ -290,14 +293,14 @@ def exec(Connection connection, input) {
                 })
 
 
-                for (double time = 1; time < duration + 1; time += timestep) {
+                for (double time = time_offset + 1; time < duration + 1 + time_offset; time += timestep) {
                     road.move(time, duration + 1)
 
                     for (SourcePoint source in road.source_points) {
                         if (source.levels[0]> 0.0){
                             sql.execute(insert, [
                                     source.id,
-                                    time,
+                                    time - time_offset,
                                     road.id,
                                     source.geom.toString(),
                                     source.levels[0],
@@ -364,6 +367,7 @@ class Road {
 
     Map<String, LwCorrectionGenerator> lw_corr_generators = new LinkedHashMap<>()
 
+    //int seed = 2528432
     Random random = new Random();
     int seed = random.nextInt();
 
@@ -404,14 +408,14 @@ class Road {
         }*/
 
         double start
-        DisplacedNegativeExponentialDistribution distribution = new DisplacedNegativeExponentialDistribution(lv, 1, seed)
+        DisplacedNegativeExponentialDistribution distribution = new DisplacedNegativeExponentialDistribution(lv, 1, seed, duration)
         start = 0
         def samples = distribution.getSamples(lv, duration)
         for (int i = 0; i < lv; i++) {
             start += samples[i]
             vehicles.add(new Vehicle(lv_spd / 3.6, length, start, Vehicle.LIGHT_VEHICLE_TYPE, (i % 2 == 1), 0))
         }
-        distribution = new DisplacedNegativeExponentialDistribution(hv, 1, seed)
+        distribution = new DisplacedNegativeExponentialDistribution(hv, 1, seed, duration)
         start = 0
         samples = distribution.getSamples(hv, duration)
         for (int i = 0; i < hv; i++) {
@@ -535,14 +539,14 @@ class Vehicle {
     static int last_id = 0
 
     static do_loop = false
-    static Random rand = new Random()
+    static Random rand = new Random(681254665)
+    //static Random rand = new Random()
 
     String vehicle_type = LIGHT_VEHICLE_TYPE
     int id = 0
     double position = 0.0
     double max_position = 0.0
     double speed = 0.0 // m/s
-    double time_offset = 0 // shift everything by X seconds to ensure enough traffic exists, default value was 10
     double time = 0.0
     double start_time = 0
     boolean exists = false
@@ -581,9 +585,10 @@ class Vehicle {
 
     void move(double input_time, double max_time) {
         // Prevent skip moving early vehicle
-        if (input_time > time_offset){
+        /*if (input_time > time_offset){
             time = (input_time + time_offset) % max_time
-        }
+        }*/
+        time = input_time
         double real_speed = (backward ? (-1 * speed) : speed)
         if (do_loop) {
             exists = true
@@ -638,7 +643,8 @@ class Vehicle {
 
 class LwCorrectionGenerator {
 
-    static Random rand = new Random()
+    static Random rand = new Random(546656812)
+    //static Random rand = new Random()
 
 
     final private static LinkedHashMap<String, List<Double> > distributions = [
@@ -765,9 +771,13 @@ abstract class HeadwayDistribution {
         for (i in 0..<n) {
             result[i] = getNext()
         }
-        if (result[n - 1] > duration) {
+        double sum = 0.0;
+        for (int i = 0; i < result.length; i++) {
+            sum += result[i];
+        }
+        if (sum > duration) {
             for (i in 0..<n) {
-                result[i] = result[i] * (duration/result[n - 1]);
+                result[i] = result[i] * (duration/sum);
             }
         }
         return result
@@ -780,13 +790,14 @@ class DisplacedNegativeExponentialDistribution extends HeadwayDistribution {
     int hmin
     double q; // number of vehicles per second !
     double lambda;
+    double duration;
 
     DisplacedNegativeExponentialDistribution(int rate, int hmin) { // rate = veh/hour
         this(rate, hmin, seed)
     }
-    DisplacedNegativeExponentialDistribution(int rate, int hmin, int seed) { // rate = veh/hour
+    DisplacedNegativeExponentialDistribution(int rate, int hmin, int seed, double duration) { // rate = veh/hour
         super(seed);
-        this.q = rate / 3600
+        this.q = rate / duration
         this.hmin = hmin
         //this.lambda = q / (1.0 - q * hmin)
         this.lambda = q
