@@ -160,7 +160,7 @@ def exec(Connection connection, input) {
 
     int nIterations = (int) Math.round(duration/timestep);
 
-    int time_offset = 90 // shift everything by X seconds to ensure enough traffic exists, default value was 10
+    int time_offset = 300 // shift everything by X seconds to ensure enough traffic exists, default value was 10
 
     String method = "PROBA"
     if (input['method']) {
@@ -268,7 +268,7 @@ def exec(Connection connection, input) {
             int k=1
 
             while (rs.next()) {
-                Road road = new Road(duration+time_offset)
+                Road road = new Road(duration+2*time_offset)
                 System.out.println(k + "/" + coundRoad + "    % " + 100*k/coundRoad)
                 k++
 
@@ -276,9 +276,9 @@ def exec(Connection connection, input) {
                         rs.getLong('PK'),
                         "",
                         rs.getGeometry('THE_GEOM'),
-                        (int) Math.round(rs.getInt("LV_D") * (duration+time_offset)/3600),
+                        (int) Math.round(rs.getInt("LV_D") * (duration+2*time_offset)/3600),
                         rs.getDouble('LV_SPD_D'),
-                        (int) Math.round(rs.getInt('HGV_D')*(duration+time_offset)/3600),
+                        (int) Math.round(rs.getInt('HGV_D')*(duration+2*time_offset)/3600),
                         rs.getDouble('HGV_SPD_D')
                 )
 
@@ -436,6 +436,34 @@ class Road {
             }
         }
     }
+
+    /*void updateSourceLevels(Vehicle vehicle) {
+        SourcePoint closest = null;
+        Coordinate vehicle_point = getPoint(vehicle.getPosition());
+        double min_distance = Double.MAX_VALUE;
+
+        // Find the closest source point
+        for (SourcePoint source : source_points) {
+            double dist = vehicle_point.distance(source.geom.getCoordinate());
+            if (dist < min_distance) {
+                closest = source;
+                min_distance = dist;
+            }
+        }
+
+        // If no source found, exit early
+        if (closest == null) return;
+
+        // Update levels using only the closest point
+        double[] vehicle_levels = vehicle.getLw();
+        for (int freq = 0; freq < closest.levels.length; freq++) {
+            closest.levels[freq] = 10 * Math.log10(
+                    Math.pow(10, closest.levels[freq] / 10) +
+                            Math.pow(10, vehicle_levels[freq] / 10)
+            );
+        }
+    }*/
+
 
     void updateSourceLevels(Vehicle vehicle) {
         SourcePoint closest = null
@@ -602,7 +630,7 @@ class Vehicle {
             }
             else if (time >= start_time) {
                 exists = true
-                position = ((time - start_time) % max_time) * real_speed
+                position = (time - start_time) * real_speed
             } else {
                 exists = false
             }
