@@ -48,10 +48,10 @@ class Run {
         RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 300, "8")
         RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 300, "9")
         RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 300, "10")*/
-        //RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5 , 3600, "0")
+        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5 , 3600, "10")
         //RunDynamicFlow("Sensor_MEAN_filtered", "POISSON_nohmin", 5 , 3600, "0")
         //RunDynamicFlow("Sensor_MEAN_filtered", "PROBA", 5 , 3600, "10")
-        PrintLW("TIME_MEAN_filtered", "POISSON_nohmin", 5, 600, "0")
+        //PrintLW("TIME_MEAN_filtered", "POISSON_nohmin", 5, 3600, "0")
         //PrintLW("TIME_MEAN_filtered", "PROBA", 5, 600, "0")
     }
 
