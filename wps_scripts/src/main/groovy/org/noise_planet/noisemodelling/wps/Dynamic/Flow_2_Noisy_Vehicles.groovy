@@ -195,13 +195,18 @@ def exec(Connection connection, input) {
     if (method == "PROBA"){
         System.println("Create the random road traffic table over the number of iterations... ")
 
-        sql.execute("drop table VEHICLES_PROBA IF EXISTS;" +
-                //"create table VEHICLES_PROBA AS SELECT *,case when LV_SPD  < 20 then 0.02*LV/20 else 0.02*LV/LV_SPD end  LV_DENS_D, case when HV_SPD  < 20 then 0.02*HV/20 else 0.02*HV/HV_SPD end HGV_DENS_D  FROM VEHICLES ;" +
-                "create table VEHICLES_PROBA AS SELECT *,LV/LV_SPD/1000*LENGTH/(FLOOR(LENGTH /" + gridStep +")+2) as LV_DENS_D, 0.02*HV/20 as HGV_DENS_D FROM VEHICLES ;" +
-                //"create table VEHICLES_PROBA AS SELECT *,LV/LV_SPD/1000*" + gridStep + "as LV_DENS_D, 0.02*HV/20 as HGV_DENS_D FROM VEHICLES ;" +
-                //"alter table VEHICLES_PROBA add LENGTH double as select ST_LENGTH(the_geom) ;" +
-                "ALTER TABLE VEHICLES_PROBA ALTER COLUMN LV_DENS_D double;" +
-                "ALTER TABLE VEHICLES_PROBA ALTER COLUMN HGV_DENS_D double;" )
+        sql.execute("DROP TABLE IF EXISTS VEHICLES_PROBA; " +
+                "CREATE TABLE VEHICLES_PROBA AS " +
+                "SELECT *, " +
+                "CASE WHEN LV_SPD IS NOT NULL AND LV_SPD <> 0 " +
+                "     THEN LV / LV_SPD / 1000 * LENGTH / (FLOOR(LENGTH / " + gridStep + ") + 2) " +
+                "     ELSE 0 END AS LV_DENS_D, " +
+                "CASE WHEN HV_SPD IS NOT NULL AND HV_SPD <> 0 " +
+                "     THEN HV / HV_SPD / 1000 * LENGTH / (FLOOR(LENGTH / " + gridStep + ") + 2) " +
+                "     ELSE 0 END AS HGV_DENS_D " +
+                "FROM VEHICLES; " +
+                "ALTER TABLE VEHICLES_PROBA ALTER COLUMN LV_DENS_D DOUBLE; " +
+                "ALTER TABLE VEHICLES_PROBA ALTER COLUMN HGV_DENS_D DOUBLE;")
 
         IndividualVehicleEmissionProcessData probabilisticProcessData = new IndividualVehicleEmissionProcessData();
         probabilisticProcessData.setDynamicEmissionTable("VEHICLES_PROBA", sql)

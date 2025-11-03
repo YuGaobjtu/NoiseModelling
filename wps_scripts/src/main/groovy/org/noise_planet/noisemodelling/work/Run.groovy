@@ -21,38 +21,51 @@ import org.noise_planet.noisemodelling.wps.Dynamic.Ind_Vehicles_2_Noisy_Vehicles
 import org.noise_planet.noisemodelling.wps.Dynamic.Noise_From_Attenuation_Matrix
 import org.noise_planet.noisemodelling.wps.NoiseModelling.Noise_level_from_source
 
-import java.nio.file.Files
-import java.nio.file.Paths
+
 import java.sql.Connection
 import java.sql.DatabaseMetaData
 import java.sql.DriverManager
 import java.sql.ResultSet
 import java.time.LocalTime
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 class Run {
 
     public static void main(String[] args) {
-        //RunSUMO("fcd_filtered_output_32633", "SUMO_acc",5)
-        //RunSUMO("fcd_filtered_output_32633_noacc", "SUMO",5)
         //RunFlow("SPACE_MEAN_filtered")
         //RunFlow("TIME_MEAN_filtered")
         //RunFlow("Sensor_MEAN_filtered")
-        //RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 90, "")
-        /*RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 300, "1")
-        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 300, "2")
-        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 300, "3")
-        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 300, "4")
-        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 300, "5")
-        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 300, "6")
-        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 300, "7")
-        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 300, "8")
-        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 300, "9")
-        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5, 300, "10")*/
-        RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5 , 3600, "10")
+        //RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5 , 3600, "10")
         //RunDynamicFlow("Sensor_MEAN_filtered", "POISSON_nohmin", 5 , 3600, "0")
-        //RunDynamicFlow("Sensor_MEAN_filtered", "PROBA", 5 , 3600, "10")
-        //PrintLW("TIME_MEAN_filtered", "POISSON_nohmin", 5, 3600, "0")
+        //PrintLW("TIME_MEAN_filtered", "POISSON_nohmin", 5, 4200, "0")
         //PrintLW("TIME_MEAN_filtered", "PROBA", 5, 600, "0")
+        // Folder path
+        String folderPath = "/home/gao/Downloads/Noise/Paris/3_18/Roads/";
+        // Define start and end times
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm");
+        LocalDateTime start = LocalDateTime.parse("2025_03_17_22_57", formatter);
+        LocalDateTime end = LocalDateTime.parse("2025_03_18_22_54", formatter);
+
+        // Loop every 3 minutes
+        while (!start.isAfter(end)) {
+            String timeStr = start.format(formatter);
+            String roadName = "Road_" + timeStr;
+            String shpPath = folderPath + roadName + ".shp";
+
+            // Check if shapefile exists
+            if (Files.exists(Paths.get(shpPath))) {
+                RunDynamicFlow(roadName, "PROBA", 5, 180, "0");
+            } else {
+                System.out.println("⚠️ Shapefile not found, skipped: " + shpPath);
+            }
+
+            // Increase time by 3 minutes
+            start = start.plus(3, ChronoUnit.MINUTES);
+        }
     }
 
     static void RunSUMO(String File_name, String Format, int gridStep){
@@ -237,13 +250,13 @@ class Run {
         H2GISFunctions.load(connection);
 
         new Import_File().exec(connection,
-                ["pathFile" :  "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/buildings_nm_ready.shp",
-                 "inputSRID": "32633",
+                ["pathFile" :  "/home/gao/Downloads/Noise/Paris/data/building.shp",
+                 "inputSRID": "2154",
                  "tableName": "BUILDINGS"])
 
         new Import_File().exec(connection,
-                ["pathFile" : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/%s.shp',File_name),
-                 "inputSRID": "32633",
+                ["pathFile" : String.format('/home/gao/Downloads/Noise/Paris/3_18/Roads/%s.shp',File_name),
+                 "inputSRID": "2154",
                  "tableName" : "ROADS"])
 
         // (optional) Add a primary key to the road network
@@ -253,14 +266,14 @@ class Run {
 
         // Import the receivers (or generate your set of receivers using Regular_Grid script for example)
         new Import_File().exec(connection,
-                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_selected.shp",
-                 "inputSRID": "32633",
+                ["pathFile" : "/home/gao/Downloads/Noise/Paris/data/Receivers.shp",
+                 "inputSRID": "2154",
                  "tableName": "RECEIVERS"])
 
         // Set a height to the receivers at 1.5 m
         new Set_Height().exec(connection,
                 [ "tableName":"RECEIVERS",
-                  "height": 1.5
+                  "height": 4
                 ])
 
         // From the network with traffic flow to individual trajectories with associated Lw using the Poisson method
@@ -315,7 +328,7 @@ class Run {
 
         System.out.println("End Noise_From_Attenuation_Matrix! Current time: " + LocalTime.now());
         new Export_Table().exec(connection, [
-                "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%s_%s_LDAY_GEOM_%s.csv',File_name, method, duration, name),
+                "exportPath"    : String.format('/home/gao/Downloads/Noise/Paris/output/%s_%s_%s_LDAY_GEOM_%s.csv',File_name, method, duration, name),
                 "tableToExport" : "LT_GEOM"
         ])
 
