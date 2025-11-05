@@ -39,10 +39,10 @@ class Run {
         //RunFlow("SPACE_MEAN_filtered")
         //RunFlow("TIME_MEAN_filtered")
         //RunFlow("Sensor_MEAN_filtered")
-        //RunDynamicFlow("TIME_MEAN_filtered", "POISSON_nohmin", 5 , 3600, "10")
+        //RunDynamicFlow("Road_2025_03_17_22_57", "PROBA", 5, 180, "0")
         //RunDynamicFlow("Sensor_MEAN_filtered", "POISSON_nohmin", 5 , 3600, "0")
         //PrintLW("TIME_MEAN_filtered", "POISSON_nohmin", 5, 4200, "0")
-        //PrintLW("TIME_MEAN_filtered", "PROBA", 5, 600, "0")
+        //PrintLW("Road_2025_03_17_22_57", "PROBA", 5, 180, "0")
         // Folder path
         String folderPath = "/home/gao/Downloads/Noise/Paris/3_18/Roads/";
         // Define start and end times
@@ -351,13 +351,13 @@ class Run {
         H2GISFunctions.load(connection);
 
         new Import_File().exec(connection,
-                ["pathFile" :  "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/buildings_nm_ready.shp",
-                 "inputSRID": "32633",
+                ["pathFile" :  "/home/gao/Downloads/Noise/Paris/data/building.shp",
+                 "inputSRID": "2154",
                  "tableName": "BUILDINGS"])
 
         new Import_File().exec(connection,
-                ["pathFile" : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/%s.shp',File_name),
-                 "inputSRID": "32633",
+                ["pathFile" : String.format('/home/gao/Downloads/Noise/Paris/3_18/Roads/%s.shp',File_name),
+                 "inputSRID": "2154",
                  "tableName" : "ROADS"])
 
         // (optional) Add a primary key to the road network
@@ -367,14 +367,14 @@ class Run {
 
         // Import the receivers (or generate your set of receivers using Regular_Grid script for example)
         new Import_File().exec(connection,
-                ["pathFile" : "/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/receivers_selected.shp",
-                 "inputSRID": "32633",
+                ["pathFile" : "/home/gao/Downloads/Noise/Paris/data/Receivers.shp",
+                 "inputSRID": "2154",
                  "tableName": "RECEIVERS"])
 
         // Set a height to the receivers at 1.5 m
         new Set_Height().exec(connection,
                 [ "tableName":"RECEIVERS",
-                  "height": 1.5
+                  "height": 4
                 ])
 
         // From the network with traffic flow to individual trajectories with associated Lw using the Poisson method
@@ -392,7 +392,7 @@ class Run {
 
         // Compute the noise level from the moving vehicles to the receivers
         new Export_Table().exec(connection, [
-                "exportPath"    : String.format('/home/gao/Downloads/Noise/SUMO/Files_for_Yu/Sodermalm/Hornsgatan/synthetic_traffic_SUMO/syntatic/high/output/%s_%s_LW_GEOM_%s.csv',File_name, method, name),
+                "exportPath"    : String.format('/home/gao/Downloads/Noise/Paris/output/%s_%s_LW_GEOM_%s.csv',File_name, method, name),
                 "tableToExport" : "LW_DYNAMIC_GEOM"
         ])
 

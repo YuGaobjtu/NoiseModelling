@@ -178,7 +178,11 @@ def exec(Connection connection, input) {
     System.out.println('Start  time : ' + TimeCategory.minus(new Date(), start))
 
     sql.execute("DROP TABLE IF EXISTS ROAD_POINTS" )
-    sql.execute("CREATE TABLE ROAD_POINTS(ROAD_ID serial, THE_GEOM geometry, LV int, LV_SPD real, HV int, HV_SPD real, LENGTH real) AS SELECT r.PK, ST_Tomultipoint(ST_Densify(the_geom, "+gridStep+")), r.LV_D, r.LV_SPD_D, r.HGV_D, r.HGV_SPD_D, r.Length FROM  "+sources_table_name+" r WHERE NOT ST_IsEmpty(r.THE_GEOM) ;")
+    sql.execute("CREATE TABLE ROAD_POINTS(ROAD_ID serial, THE_GEOM geometry," +
+            "LV int, LV_SPD real, HV int, HV_SPD real, WBV int, WBV_SPD real, LENGTH real)" +
+            "AS SELECT r.PK, ST_Tomultipoint(ST_Densify(the_geom, "+gridStep+"))," +
+            "r.LV_D, r.LV_SPD_D, r.HGV_D, r.HGV_SPD_D, r.WBV_D, r.WBV_SPD_D, r.Length " +
+            "FROM  "+sources_table_name+" r WHERE NOT ST_IsEmpty(r.THE_GEOM) ;")
 
     sql.execute("drop table VEHICLES if exists;" +
             " create table VEHICLES as SELECT ST_AddZ(ST_FORCE3D(the_geom),0.05) geom_3D,* from ST_Explode('ROAD_POINTS');" +
@@ -203,10 +207,14 @@ def exec(Connection connection, input) {
                 "     ELSE 0 END AS LV_DENS_D, " +
                 "CASE WHEN HV_SPD IS NOT NULL AND HV_SPD <> 0 " +
                 "     THEN HV / HV_SPD / 1000 * LENGTH / (FLOOR(LENGTH / " + gridStep + ") + 2) " +
-                "     ELSE 0 END AS HGV_DENS_D " +
+                "     ELSE 0 END AS HGV_DENS_D, " +
+                "CASE WHEN WBV_SPD IS NOT NULL AND WBV_SPD <> 0 " +
+                "     THEN WBV / WBV_SPD / 1000 * LENGTH / (FLOOR(LENGTH / " + gridStep + ") + 2) " +
+                "     ELSE 0 END AS WBV_DENS_D " +
                 "FROM VEHICLES; " +
                 "ALTER TABLE VEHICLES_PROBA ALTER COLUMN LV_DENS_D DOUBLE; " +
-                "ALTER TABLE VEHICLES_PROBA ALTER COLUMN HGV_DENS_D DOUBLE;")
+                "ALTER TABLE VEHICLES_PROBA ALTER COLUMN HGV_DENS_D DOUBLE; "+
+                "ALTER TABLE VEHICLES_PROBA ALTER COLUMN WBV_DENS_D DOUBLE;")
 
         IndividualVehicleEmissionProcessData probabilisticProcessData = new IndividualVehicleEmissionProcessData();
         probabilisticProcessData.setDynamicEmissionTable("VEHICLES_PROBA", sql)
@@ -284,7 +292,9 @@ def exec(Connection connection, input) {
                         (int) Math.round(rs.getInt("LV_D") * (duration+2*time_offset)/3600),
                         rs.getDouble('LV_SPD_D'),
                         (int) Math.round(rs.getInt('HGV_D')*(duration+2*time_offset)/3600),
-                        rs.getDouble('HGV_SPD_D')
+                        rs.getDouble('HGV_SPD_D'),
+                        (int) Math.round(rs.getInt('WBV_D')*(duration+2*time_offset)/3600),
+                        rs.getDouble('WBV_SPD_D')
                 )
 
                 sql.query("SELECT * FROM SOURCES_0dB WHERE ROAD_ID = " + road.id, { ResultSet result2 ->
@@ -361,6 +371,8 @@ class Road {
     double lv_spd
     int hv
     double hv_spd
+    int wbv
+    double wbv_spd
     double length
     double duration
 
@@ -384,7 +396,7 @@ class Road {
         this.duration = duration;
     }
 
-    void setRoad(long id, String type, Geometry geom, int lv, double lv_spd, int hv, double hv_spd) {
+    void setRoad(long id, String type, Geometry geom, int lv, double lv_spd, int hv, double hv_spd, int wbv, double wbv_spd) {
         if (geom.getGeometryType() == "MultiLineString") {
             geom = geom.getGeometryN(0)
         }
@@ -398,6 +410,8 @@ class Road {
         this.lv_spd = lv_spd
         this.hv = hv
         this.hv_spd = hv_spd
+        this.wbv = wbv
+        this.wbv_spd = wbv_spd
         this.length = geom.getLength()
 
         Coordinate[] coordinates = geom.getCoordinates()
@@ -426,6 +440,13 @@ class Road {
         for (int i = 0; i < hv; i++) {
             start += samples[i]
             vehicles.add(new Vehicle(hv_spd / 3.6, length, start, Vehicle.HEAVY_VEHICLE_TYPE, (i % 2 == 1), 0))
+        }
+        distribution = new DisplacedNegativeExponentialDistribution(wbv, 1, seed, duration)
+        start = 0
+        samples = distribution.getSamples(wbv, duration)
+        for (int i = 0; i < wbv; i++) {
+            start += samples[i]
+            vehicles.add(new Vehicle(wbv_spd / 3.6, length, start, Vehicle.MOTORCYCLE_VEHICLE_TYPE, (i % 2 == 1), 0))
         }
         /*for (Vehicle vehicle: vehicles) {
             vehicle.lw_correction = 0 //lw_corr_generators.get(vehicle.vehicle_type).generate()
@@ -566,8 +587,8 @@ class Vehicle {
     final static String LIGHT_VEHICLE_TYPE = "1"
     final static String MEDIUM_VEHICLE_TYPE = "2"
     final static String HEAVY_VEHICLE_TYPE = "3"
-    final static String MOPEDS_VEHICLE_TYPE = "4"
-    final static String MOTORCYCLE_VEHICLE_TYPE = "4"
+    final static String MOPEDS_VEHICLE_TYPE = "4a"
+    final static String MOTORCYCLE_VEHICLE_TYPE = "4b"
 
     static int last_id = 0
 
@@ -850,14 +871,17 @@ class IndividualVehicleEmissionProcessData {
 
     Map<Integer, Double> SPEED_LV = new HashMap<>()
     Map<Integer, Double> SPEED_HV = new HashMap<>()
+    Map<Integer, Double> SPEED_WBV = new HashMap<>()
     Map<Integer, Double> LV = new HashMap<>()
     Map<Integer, Double> HV = new HashMap<>()
+    Map<Integer, Double> WBV = new HashMap<>()
     int nCars = 0
 
     double[] getCarsLevel(int idSource) throws SQLException {
         double[] res_d = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         double[] res_LV = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         double[] res_HV = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        double[] res_WBV = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         def list = [63, 125, 250, 500, 1000, 2000, 4000, 8000]
         Random rand = new Random(681254665)
 
@@ -891,8 +915,7 @@ class IndividualVehicleEmissionProcessData {
             }
 
         }
-        random = Math.random()
-        if (random < HV.get(idSource)) {
+        else if (random < LV.get(idSource) + HV.get(idSource)) {
             int kk = 0
             for (f in list) {
                 double speed = SPEED_HV.get(idSource)
@@ -918,14 +941,39 @@ class IndividualVehicleEmissionProcessData {
                 kk++
             }
         }
+        else if (random < LV.get(idSource) + HV.get(idSource) + WBV.get(idSource)) {
+            int kk = 0
+            for (f in list) {
+                double speed = SPEED_WBV.get(idSource)
+                double acc = 0
+                int FreqParam = f
+                double Temperature = 20
+                String RoadSurface = "DEF"
+                boolean Stud = false
+                double Junc_dist = 200
+                int Junc_type = 1
+                String veh_type = "4b"
+                int acc_type = 1
+                double LwStd = 0
+                int VehId = 10
+
+                RoadVehicleCnossosvarParameters rsParameters = new RoadVehicleCnossosvarParameters(speed, acc, veh_type, acc_type, Stud, LwStd, VehId)
+                rsParameters.setSlopePercentage(0)
+                rsParameters.setRoadSurface(RoadSurface)
+                rsParameters.setTemperature(Temperature)
+                rsParameters.setFrequency(f)
+
+                res_WBV[kk] = RoadVehicleCnossosvar.evaluate(rsParameters)
+                kk++
+            }
+        }
         int kk = 0
         for (f in list) {
-            res_d[kk] = res_LV[kk] /*10 * Math.log10(
-                    (1.0 / 2.0) *
-                            (Math.pow(10, (10 * Math.log10(Math.pow(10, res_LV[kk] / 10))) / 10)
-                                    + Math.pow(10, (10 * Math.log10(Math.pow(10, res_HV[kk] / 10))) / 10)
-                            )
-            )*/
+            res_d[kk] = 10 * Math.log10(
+                    Math.pow(10, res_LV[kk] / 10) +
+                            Math.pow(10, res_HV[kk] / 10) +
+                            Math.pow(10, res_WBV[kk] / 10)
+            )
             res_d[kk] = new BigDecimal(res_d[kk])
                     .setScale(6, RoundingMode.HALF_UP)
                     .doubleValue();
@@ -946,12 +994,14 @@ class IndividualVehicleEmissionProcessData {
         //////////////////////
 
         // Remplissage des variables avec le contenu du fichier plan d'exp
-        sql.eachRow('SELECT PK,  LV_SPD, LV_DENS_D,  HV_SPD, HGV_DENS_D FROM ' + tablename + ';') { row ->
+        sql.eachRow('SELECT PK,  LV_SPD, LV_DENS_D,  HV_SPD, HGV_DENS_D,  WBV_SPD, WBV_DENS_D FROM ' + tablename + ';') { row ->
             int pk = (int) row[0]
             SPEED_LV.put(pk, (double) row[1])
             LV.put(pk, (double) row[2])
             SPEED_HV.put(pk, (double) row[3])
             HV.put(pk, (double) row[4])
+            SPEED_WBV.put(pk, (double) row[5])
+            WBV.put(pk, (double) row[6])
 
         }
 
