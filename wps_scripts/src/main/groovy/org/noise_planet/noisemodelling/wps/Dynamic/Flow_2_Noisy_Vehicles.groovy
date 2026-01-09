@@ -463,7 +463,8 @@ class Road {
         }
     }
 
-    /*void updateSourceLevels(Vehicle vehicle) {
+    /* // For only the closest point
+    void updateSourceLevels(Vehicle vehicle) {
         SourcePoint closest = null;
         Coordinate vehicle_point = getPoint(vehicle.getPosition());
         double min_distance = Double.MAX_VALUE;
@@ -979,7 +980,6 @@ class IndividualVehicleEmissionProcessData {
                     .doubleValue();
             kk++
         }
-
 
         return res_d
     }
