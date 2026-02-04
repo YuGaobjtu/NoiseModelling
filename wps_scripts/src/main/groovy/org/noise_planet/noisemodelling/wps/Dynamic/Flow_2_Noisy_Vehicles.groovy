@@ -160,7 +160,7 @@ def exec(Connection connection, input) {
 
     int nIterations = (int) Math.round(duration/timestep);
 
-    int time_offset = 300 // shift everything by X seconds to ensure enough traffic exists, default value was 10
+    int time_offset = 120 // Extend and loop X seconds to ensure produce exact traffic exists, default value was 120
 
     String method = "PROBA"
     if (input['method']) {
@@ -281,7 +281,7 @@ def exec(Connection connection, input) {
             int k=1
 
             while (rs.next()) {
-                Road road = new Road(duration+2*time_offset)
+                Road road = new Road(duration)
                 System.out.println(k + "/" + coundRoad + "    % " + 100*k/coundRoad)
                 k++
 
@@ -289,11 +289,11 @@ def exec(Connection connection, input) {
                         rs.getLong('PK'),
                         "",
                         rs.getGeometry('THE_GEOM'),
-                        (int) Math.round(rs.getInt("LV_D") * (duration+2*time_offset)/3600),
+                        (int) Math.round(rs.getInt("LV_D") * duration/3600),
                         rs.getDouble('LV_SPD_D'),
-                        (int) Math.round(rs.getInt('HGV_D')*(duration+2*time_offset)/3600),
+                        (int) Math.round(rs.getInt('HGV_D')*duration/3600),
                         rs.getDouble('HGV_SPD_D'),
-                        (int) Math.round(rs.getInt('WBV_D')*(duration+2*time_offset)/3600),
+                        (int) Math.round(rs.getInt('WBV_D')*duration/3600),
                         rs.getDouble('WBV_SPD_D')
                 )
 
@@ -308,14 +308,14 @@ def exec(Connection connection, input) {
                 })
 
 
-                for (double time = time_offset + 1; time < duration + 1 + time_offset; time += timestep) {
-                    road.move(time, duration + 1)
+                for (double time = 0; time < duration + time_offset; time += timestep) {
+                    road.move(time, duration + time_offset)
 
                     for (SourcePoint source in road.source_points) {
                         if (source.levels[0]> 0.0){
                             sql.execute(insert, [
                                     source.id,
-                                    time - time_offset,
+                                    time%duration+1,
                                     road.id,
                                     source.geom.toString(),
                                     source.levels[0],
@@ -640,10 +640,7 @@ class Vehicle {
 
     void move(double input_time, double max_time) {
         // Prevent skip moving early vehicle
-        /*if (input_time > time_offset){
-            time = (input_time + time_offset) % max_time
-        }*/
-        time = input_time
+        time = input_time % max_time
         double real_speed = (backward ? (-1 * speed) : speed)
         if (do_loop) {
             exists = true
@@ -826,6 +823,7 @@ abstract class HeadwayDistribution {
         for (i in 0..<n) {
             result[i] = getNext()
         }
+
         double sum = 0.0;
         for (int i = 0; i < result.length; i++) {
             sum += result[i];

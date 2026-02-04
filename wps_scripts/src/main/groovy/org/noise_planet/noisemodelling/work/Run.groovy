@@ -51,7 +51,7 @@ class Run {
         LocalDateTime end = LocalDateTime.parse("2025_03_18_22_54", formatter);
 
         // Loop every 3 minutes
-        while (!start.isAfter(end)) {
+        /*while (!start.isAfter(end)) {
             String timeStr = start.format(formatter);
             String roadName = "Road_" + timeStr;
             String shpPath = folderPath + roadName + ".shp";
@@ -65,7 +65,9 @@ class Run {
 
             // Increase time by 3 minutes
             start = start.plus(3, ChronoUnit.MINUTES);
-        }
+        }*/
+
+        PrintLW("Road_2025_03_17_22_57", "Poisson", 5, 180, "0")
     }
 
     static void RunSUMO(String File_name, String Format, int gridStep){
