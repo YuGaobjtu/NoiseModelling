@@ -179,9 +179,9 @@ def exec(Connection connection, input) {
 
     sql.execute("DROP TABLE IF EXISTS ROAD_POINTS" )
     sql.execute("CREATE TABLE ROAD_POINTS(ROAD_ID serial, THE_GEOM geometry," +
-            "LV int, LV_SPD real, HV int, HV_SPD real, WBV int, WBV_SPD real, LENGTH real)" +
+            "LV int, LV_SPD real, HV int, HV_SPD real, WBV int, WBV_SPD real, LENGTH real, LANES int)" +
             "AS SELECT r.PK, ST_Tomultipoint(ST_Densify(the_geom, "+gridStep+"))," +
-            "r.LV_D, r.LV_SPD_D, r.HGV_D, r.HGV_SPD_D, r.WBV_D, r.WBV_SPD_D, r.Length " +
+            "r.LV_D, r.LV_SPD_D, r.HGV_D, r.HGV_SPD_D, r.WBV_D, r.WBV_SPD_D, r.Length, r.LANES " +
             "FROM  "+sources_table_name+" r WHERE NOT ST_IsEmpty(r.THE_GEOM) ;")
 
     sql.execute("drop table VEHICLES if exists;" +
@@ -189,7 +189,15 @@ def exec(Connection connection, input) {
             "ALTER TABLE VEHICLES DROP COLUMN the_geom;" +
             "ALTER TABLE VEHICLES RENAME COLUMN geom_3D TO the_geom;" +
             "alter table VEHICLES add PK INT AUTO_INCREMENT  PRIMARY KEY;" +
-            "ALTER TABLE VEHICLES DROP COLUMN EXPLOD_ID;")
+            // Update EXPLOD_ID to max(EXPLOD_ID) per ROAD_ID
+            "ALTER TABLE VEHICLES ADD COLUMN MAX_EXPLOD_ID INT;" +
+            "UPDATE VEHICLES v " +
+            "SET MAX_EXPLOD_ID = (" +
+            "   SELECT MAX(EXPLOD_ID) " +
+            "   FROM VEHICLES v2 " +
+            "   WHERE v2.ROAD_ID = v.ROAD_ID" +
+            ")"
+    );
 
 
     sql.execute("DROP TABLE IF EXISTS SOURCES_0dB")
@@ -203,13 +211,13 @@ def exec(Connection connection, input) {
                 "CREATE TABLE VEHICLES_PROBA AS " +
                 "SELECT *, " +
                 "CASE WHEN LV_SPD IS NOT NULL AND LV_SPD <> 0 " +
-                "     THEN LV / LV_SPD / 1000 * LENGTH / (FLOOR(LENGTH / " + gridStep + ") + 2) " +
+                "     THEN LV / LV_SPD / 1000 * LENGTH / MAX_EXPLOD_ID / LANES " +
                 "     ELSE 0 END AS LV_DENS_D, " +
                 "CASE WHEN HV_SPD IS NOT NULL AND HV_SPD <> 0 " +
-                "     THEN HV / HV_SPD / 1000 * LENGTH / (FLOOR(LENGTH / " + gridStep + ") + 2) " +
+                "     THEN HV / HV_SPD / 1000 * LENGTH / MAX_EXPLOD_ID / LANES " +
                 "     ELSE 0 END AS HGV_DENS_D, " +
                 "CASE WHEN WBV_SPD IS NOT NULL AND WBV_SPD <> 0 " +
-                "     THEN WBV / WBV_SPD / 1000 * LENGTH / (FLOOR(LENGTH / " + gridStep + ") + 2) " +
+                "     THEN WBV / WBV_SPD / 1000 * LENGTH / MAX_EXPLOD_ID / LANES " +
                 "     ELSE 0 END AS WBV_DENS_D " +
                 "FROM VEHICLES; " +
                 "ALTER TABLE VEHICLES_PROBA ALTER COLUMN LV_DENS_D DOUBLE; " +
@@ -236,7 +244,7 @@ def exec(Connection connection, input) {
                 if (!sourceLev.containsKey(iCar)) {
                     double[] carsLevel = probabilisticProcessData.getCarsLevel(iCar)
 
-                    if (carsLevel.sum()!= 0) sourceLev.put(iCar, carsLevel)
+                    if (carsLevel.sum()> 0) sourceLev.put(iCar, carsLevel)
                 }
             }
             sql.withBatch(100, qry) { ps ->
@@ -337,7 +345,7 @@ def exec(Connection connection, input) {
         "UPDATE LW_DYNAMIC_GEOM " +"SET THE_GEOM = ST_AddZ(ST_Force3D(THE_GEOM), 0.05);")
     }
     sql.execute("DROP TABLE IF EXISTS ROAD_POINTS")
-    sql.execute("DROP TABLE IF EXISTS VEHICLES")
+    //sql.execute("DROP TABLE IF EXISTS VEHICLES")
     sql.execute("drop table LW_DYNAMIC if exists;")
     sql.execute("drop table VEHICLES_PROBA if exists;")
 
@@ -874,96 +882,191 @@ class IndividualVehicleEmissionProcessData {
     Map<Integer, Double> LV = new HashMap<>()
     Map<Integer, Double> HV = new HashMap<>()
     Map<Integer, Double> WBV = new HashMap<>()
+    Map<Integer, Integer> LANES = new HashMap<>()
     int nCars = 0
 
     double[] getCarsLevel(int idSource) throws SQLException {
-        double[] res_d = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        double[] res_LV = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        double[] res_HV = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        double[] res_WBV = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        double[] res_d = new double[8];
+        double[] res_LV = new double[8];
+        double[] res_HV = new double[8];
+        double[] res_WBV = new double[8];
+
+        Arrays.fill(res_d, -99.0);
+        Arrays.fill(res_LV, -99.0);
+        Arrays.fill(res_HV, -99.0);
+        Arrays.fill(res_WBV, -99.0);
         def list = [63, 125, 250, 500, 1000, 2000, 4000, 8000]
-        Random rand = new Random(681254665)
+        Random rand = new Random()
 
-        def random = Math.random()
-        if (random < LV.get(idSource)) {
-            int kk = 0
-            for (f in list) {
+        for (int l = 0; l < LANES.get(idSource); l++) {
+            def random = Math.random()
+            if (random < LV.get(idSource)) {
+                int kk = 0
+                int VehId = rand.nextInt()
+                for (f in list) {
 
-                double speed = SPEED_LV.get(idSource)
-                //speed = (3 * speed / 4) + (rand.nextGaussian() + 1) * (speed / 4)
-                int acc = 0
-                int FreqParam = f
-                double Temperature = 20
-                String RoadSurface = "DEF"
-                boolean Stud = false
-                double Junc_dist = 200
-                int Junc_type = 1
-                String veh_type = "1"
-                int acc_type = 1
-                double LwStd = 0
-                int VehId = 10
+                    double speed = SPEED_LV.get(idSource)
+                    //speed = (3 * speed / 4) + (rand.nextGaussian() + 1) * (speed / 4)
+                    int acc = 0
+                    int FreqParam = f
+                    double Temperature = 20
+                    String RoadSurface = "DEF"
+                    boolean Stud = false
+                    double Junc_dist = 200
+                    int Junc_type = 1
+                    String veh_type = "1"
+                    int acc_type = 1
+                    double LwStd = 0
 
-                RoadVehicleCnossosvarParameters rsParameters = new RoadVehicleCnossosvarParameters(speed, acc, veh_type, acc_type, Stud, LwStd, VehId)
-                rsParameters.setRoadSurface(RoadSurface)
-                rsParameters.setSlopePercentage(0)
-                rsParameters.setTemperature(Temperature)
-                rsParameters.setFrequency(f)
+                    if (speed < 20){
+                        LwStd = 2.4
+                    }
+                    else if (speed < 30){
+                        LwStd = 3.56
+                    }
+                    else if (speed < 40){
+                        LwStd = 2.79
+                    }
+                    else if (speed < 50) {
+                        LwStd = 2.46
+                    }
+                    else if (speed < 60) {
+                        LwStd = 1.84
+                    }
+                    else if (speed < 70) {
+                        LwStd = 1.28
+                    }
+                    else if (speed < 80) {
+                        LwStd = 1.23
+                    }
+                    else if (speed < 90) {
+                        LwStd = 1.16
+                    }
+                    else if (speed < 100) {
+                        LwStd = 1.19
+                    }
 
-                res_LV[kk] = RoadVehicleCnossosvar.evaluate(rsParameters)
-                kk++
-            }
+                    RoadVehicleCnossosvarParameters rsParameters = new RoadVehicleCnossosvarParameters(speed, acc, veh_type, acc_type, Stud, LwStd, VehId)
+                    rsParameters.setRoadSurface(RoadSurface)
+                    rsParameters.setSlopePercentage(0)
+                    rsParameters.setTemperature(Temperature)
+                    rsParameters.setFrequency(f)
 
-        }
-        else if (random < LV.get(idSource) + HV.get(idSource)) {
-            int kk = 0
-            for (f in list) {
-                double speed = SPEED_HV.get(idSource)
-                double acc = 0
-                int FreqParam = f
-                double Temperature = 20
-                String RoadSurface = "DEF"
-                boolean Stud = false
-                double Junc_dist = 200
-                int Junc_type = 1
-                String veh_type = "3"
-                int acc_type = 1
-                double LwStd = 0
-                int VehId = 10
+                    res_LV[kk] = 10 * Math.log10(
+                            (Math.pow(10, res_LV[kk] / 10.0) + Math.pow(10, RoadVehicleCnossosvar.evaluate(rsParameters) / 10.0))
+                    )
+                    kk++
+                }
+            } else if (random < LV.get(idSource) + HV.get(idSource)) {
+                int kk = 0
+                int VehId = rand.nextInt()
+                for (f in list) {
+                    double speed = SPEED_HV.get(idSource)
+                    double acc = 0
+                    int FreqParam = f
+                    double Temperature = 20
+                    String RoadSurface = "DEF"
+                    boolean Stud = false
+                    double Junc_dist = 200
+                    int Junc_type = 1
+                    String veh_type = "3"
+                    int acc_type = 1
+                    double LwStd = 0
 
-                RoadVehicleCnossosvarParameters rsParameters = new RoadVehicleCnossosvarParameters(speed, acc, veh_type, acc_type, Stud, LwStd, VehId)
-                rsParameters.setSlopePercentage(0)
-                rsParameters.setRoadSurface(RoadSurface)
-                rsParameters.setTemperature(Temperature)
-                rsParameters.setFrequency(f)
+                    if (speed < 20){
+                        LwStd = 1.74
+                    }
+                    else if (speed < 30){
+                        LwStd = 2.68
+                    }
+                    else if (speed < 40){
+                        LwStd = 2.06
+                    }
+                    else if (speed < 50) {
+                        LwStd = 1.35
+                    }
+                    else if (speed < 60) {
+                        LwStd = 1.46
+                    }
+                    else if (speed < 70) {
+                        LwStd = 2.50
+                    }
+                    else if (speed < 80) {
+                        LwStd = 1.54
+                    }
+                    else if (speed < 90) {
+                        LwStd = 1.56
+                    }
+                    else if (speed < 100) {
+                        LwStd = 1.54
+                    }
 
-                res_HV[kk] = RoadVehicleCnossosvar.evaluate(rsParameters)
-                kk++
-            }
-        }
-        else if (random < LV.get(idSource) + HV.get(idSource) + WBV.get(idSource)) {
-            int kk = 0
-            for (f in list) {
-                double speed = SPEED_WBV.get(idSource)
-                double acc = 0
-                int FreqParam = f
-                double Temperature = 20
-                String RoadSurface = "DEF"
-                boolean Stud = false
-                double Junc_dist = 200
-                int Junc_type = 1
-                String veh_type = "4b"
-                int acc_type = 1
-                double LwStd = 0
-                int VehId = 10
+                    RoadVehicleCnossosvarParameters rsParameters = new RoadVehicleCnossosvarParameters(speed, acc, veh_type, acc_type, Stud, LwStd, VehId)
+                    rsParameters.setSlopePercentage(0)
+                    rsParameters.setRoadSurface(RoadSurface)
+                    rsParameters.setTemperature(Temperature)
+                    rsParameters.setFrequency(f)
 
-                RoadVehicleCnossosvarParameters rsParameters = new RoadVehicleCnossosvarParameters(speed, acc, veh_type, acc_type, Stud, LwStd, VehId)
-                rsParameters.setSlopePercentage(0)
-                rsParameters.setRoadSurface(RoadSurface)
-                rsParameters.setTemperature(Temperature)
-                rsParameters.setFrequency(f)
+                    res_HV[kk] = 10 * Math.log10(
+                            (Math.pow(10, res_HV[kk] / 10.0) + Math.pow(10, RoadVehicleCnossosvar.evaluate(rsParameters) / 10.0))
+                    )
+                    kk++
+                }
+            } else if (random < LV.get(idSource) + HV.get(idSource) + WBV.get(idSource)) {
+                int kk = 0
+                int VehId = rand.nextInt()
+                for (f in list) {
+                    double speed = SPEED_WBV.get(idSource)
+                    double acc = 0
+                    int FreqParam = f
+                    double Temperature = 20
+                    String RoadSurface = "DEF"
+                    boolean Stud = false
+                    double Junc_dist = 200
+                    int Junc_type = 5
+                    String veh_type = "4b"
+                    int acc_type = 1
+                    double LwStd = 0
 
-                res_WBV[kk] = RoadVehicleCnossosvar.evaluate(rsParameters)
-                kk++
+                    if (speed < 20){
+                        LwStd = 2.4
+                    }
+                    else if (speed < 30){
+                        LwStd = 3.56
+                    }
+                    else if (speed < 40){
+                        LwStd = 2.79
+                    }
+                    else if (speed < 50) {
+                        LwStd = 2.46
+                    }
+                    else if (speed < 60) {
+                        LwStd = 1.84
+                    }
+                    else if (speed < 70) {
+                        LwStd = 1.28
+                    }
+                    else if (speed < 80) {
+                        LwStd = 1.23
+                    }
+                    else if (speed < 90) {
+                        LwStd = 1.16
+                    }
+                    else if (speed < 100) {
+                        LwStd = 1.19
+                    }
+
+                    RoadVehicleCnossosvarParameters rsParameters = new RoadVehicleCnossosvarParameters(speed, acc, veh_type, acc_type, Stud, LwStd, VehId)
+                    rsParameters.setSlopePercentage(0)
+                    rsParameters.setRoadSurface(RoadSurface)
+                    rsParameters.setTemperature(Temperature)
+                    rsParameters.setFrequency(f)
+
+                    res_WBV[kk] = 10 * Math.log10(
+                            (Math.pow(10, res_WBV[kk] / 10.0) + Math.pow(10, RoadVehicleCnossosvar.evaluate(rsParameters) / 10.0))
+                    )
+                    kk++
+                }
             }
         }
         int kk = 0
@@ -992,7 +1095,7 @@ class IndividualVehicleEmissionProcessData {
         //////////////////////
 
         // Remplissage des variables avec le contenu du fichier plan d'exp
-        sql.eachRow('SELECT PK,  LV_SPD, LV_DENS_D,  HV_SPD, HGV_DENS_D,  WBV_SPD, WBV_DENS_D FROM ' + tablename + ';') { row ->
+        sql.eachRow('SELECT PK,  LV_SPD, LV_DENS_D,  HV_SPD, HGV_DENS_D,  WBV_SPD, WBV_DENS_D, LANES FROM ' + tablename + ';') { row ->
             int pk = (int) row[0]
             SPEED_LV.put(pk, (double) row[1])
             LV.put(pk, (double) row[2])
@@ -1000,6 +1103,8 @@ class IndividualVehicleEmissionProcessData {
             HV.put(pk, (double) row[4])
             SPEED_WBV.put(pk, (double) row[5])
             WBV.put(pk, (double) row[6])
+            LANES.put(pk, (double) row[7])
+
 
         }
 
